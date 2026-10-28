@@ -2,7 +2,7 @@ import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
 
-import jwt
+import jwt  # type: ignore
 from argon2 import PasswordHasher  # type: ignore
 from argon2.exceptions import VerifyMismatchError  # type: ignore
 
