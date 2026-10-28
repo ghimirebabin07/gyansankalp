@@ -5,6 +5,8 @@ venv/
 # Python cache
 __pycache__/
 *.py[cod]
+*.pyc
+*.pyo
 
 # Environment variables
 .env
@@ -14,8 +16,18 @@ __pycache__/
 *.db
 *.sqlite3
 
+# Testing
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+
 # IDE / OS
 .vscode/
 .idea/
 .DS_Store
-Thumbs.db 
+Thumbs.db
+
+# Logs
+*.log
+logs/ 
