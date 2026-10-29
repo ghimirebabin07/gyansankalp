@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 import jwt  # type: ignore
 from argon2 import PasswordHasher  # type: ignore
-from argon2.exceptions import VerifyMismatchError  # type: ignore
+from argon2.exceptions import VerifyMismatchError  # type: ignore 
 
 from app.core.config import settings
 
