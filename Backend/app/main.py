@@ -1,12 +1,28 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
-from app.routers import auth, admin_courses, admin_enrollments, courses
+from app.core.config import settings
+from app.core.storage import get_storage
+from app.routers import (
+    admin_courses, admin_enrollments, admin_materials, auth, courses, materials,
+)
 
-app = FastAPI(title="GyanSankalp API")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    if settings.s3_create_bucket:  # development only
+        get_storage().ensure_bucket()
+    yield
+
+
+app = FastAPI(title="GyanSankalp API", lifespan=lifespan)
 app.include_router(auth.router)
 app.include_router(courses.router)
+app.include_router(materials.router)
 app.include_router(admin_courses.router)
 app.include_router(admin_enrollments.router)
+app.include_router(admin_materials.router)
 
 
 @app.get("/health")
