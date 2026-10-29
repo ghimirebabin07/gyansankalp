@@ -64,7 +64,9 @@ def delete_course(course_id: int, db: Session = Depends(get_db)):
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise HTTPException(409, "Course has enrollments. Unpublish it instead.")
+        raise HTTPException(
+            409, "Course has enrollments or materials. Unpublish it instead."
+        )
     return Response(status_code=204)
 
 
@@ -96,5 +98,9 @@ def delete_topic(topic_id: int, db: Session = Depends(get_db)):
     if not topic:
         raise HTTPException(404, "Topic not found")
     db.delete(topic)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(409, "Topic still has materials. Delete them first.")
     return Response(status_code=204)
