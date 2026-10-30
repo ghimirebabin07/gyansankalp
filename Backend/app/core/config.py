@@ -24,5 +24,12 @@ class Settings(BaseSettings):
     max_upload_mb: int = 50
     max_pdf_pages: int = 800
 
+    # comma-separated list of frontend origins allowed to call the API
+    cors_origins: str = "http://localhost:5173,http://localhost:5174"
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
 
 settings = Settings()
