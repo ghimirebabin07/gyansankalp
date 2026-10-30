@@ -1,21 +1,45 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.access import active_conditions
 from app.core.deps import get_current_user
 from app.db.session import get_db
-from app.models.course import Course
+from app.models.course import Course, Topic
 from app.models.enrollment import Enrollment
+from app.models.material import Material
 from app.models.user import User
 from app.schemas.course import CourseDetail, CourseOut
 
 router = APIRouter(tags=["courses"])
 
 
+@router.get("/stats")
+def get_stats(db: Session = Depends(get_db)):
+    """Public stats for the homepage counters."""
+    course_count = db.scalar(select(func.count(Course.id)).where(Course.is_published.is_(True))) or 0
+    topic_count = db.scalar(
+        select(func.count(Topic.id))
+        .join(Course, Topic.course_id == Course.id)
+        .where(Course.is_published.is_(True))
+    ) or 0
+    material_count = db.scalar(
+        select(func.count(Material.id))
+        .join(Topic, Material.topic_id == Topic.id)
+        .join(Course, Topic.course_id == Course.id)
+        .where(Course.is_published.is_(True), Material.status == "ready")
+    ) or 0
+    return {"courses": course_count, "topics": topic_count, "materials": material_count}
+
+
 @router.get("/courses", response_model=list[CourseOut])
-def list_courses(db: Session = Depends(get_db)):
+def list_courses(
+    level: str | None = Query(None, description="Filter by exam level (e.g. kharidar, nasu, officer)"),
+    db: Session = Depends(get_db),
+):
     stmt = select(Course).where(Course.is_published.is_(True)).order_by(Course.id)
+    if level:
+        stmt = stmt.where(Course.exam_level.ilike(f"%{level}%"))
     return db.scalars(stmt).all()
 
 

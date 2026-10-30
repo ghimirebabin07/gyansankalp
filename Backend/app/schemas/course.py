@@ -18,6 +18,8 @@ class CourseOut(BaseModel):
     title: str
     slug: str
     description: str
+    syllabus: str
+    exam_level: str
     price_npr: int
 
 
@@ -34,6 +36,8 @@ class CourseCreate(BaseModel):
     title: str = Field(min_length=3, max_length=200)
     slug: str = Field(max_length=120, pattern=SLUG)
     description: str = ""
+    syllabus: str = ""
+    exam_level: str = ""
     price_npr: int = Field(0, ge=0)
     is_published: bool = False
 
@@ -42,6 +46,8 @@ class CourseUpdate(BaseModel):
     title: str | None = Field(None, min_length=3, max_length=200)
     slug: str | None = Field(None, max_length=120, pattern=SLUG)
     description: str | None = None
+    syllabus: str | None = None
+    exam_level: str | None = None
     price_npr: int | None = Field(None, ge=0)
     is_published: bool | None = None
 

@@ -5,7 +5,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.deps import admin_only
+from app.core.deps import get_current_admin
 from app.db.session import get_db
 from app.models.course import Course
 from app.models.enrollment import Enrollment, EnrollmentStatus
@@ -15,7 +15,7 @@ from app.schemas.enrollment import EnrollmentGrant, EnrollmentOut
 router = APIRouter(
     prefix="/admin/enrollments",
     tags=["admin: enrollments"],
-    dependencies=[Depends(admin_only)],
+    dependencies=[Depends(get_current_admin)],
 )
 
 
@@ -85,5 +85,19 @@ def revoke(enrollment_id: int, db: Session = Depends(get_db)):
     enrollment = db.get(Enrollment, enrollment_id)
     if not enrollment:
         raise HTTPException(404, "Enrollment not found")
+    db.refresh(enrollment)
+    return enrollment
+
+
+@router.post("/{enrollment_id}/approve", response_model=EnrollmentOut)
+def approve(enrollment_id: int, db: Session = Depends(get_db)):
+    """Admin approves a pending enrollment request."""
+    enrollment = db.get(Enrollment, enrollment_id)
+    if not enrollment:
+        raise HTTPException(404, "Enrollment not found")
+    if enrollment.status != EnrollmentStatus.pending:
+        raise HTTPException(409, "Only pending enrollments can be approved")
+    enrollment.status = EnrollmentStatus.active
+    db.commit()
     db.refresh(enrollment)
     return enrollment

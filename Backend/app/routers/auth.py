@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.deps import get_current_user, admin_only
+from app.core.deps import get_current_user
 from app.core.security import (
     hash_password,
     verify_password,
@@ -116,8 +116,3 @@ def logout(data: RefreshIn, db: Session = Depends(get_db)):
 @router.get("/me", response_model=UserOut)
 def me(user: User = Depends(get_current_user)):
     return user
-
-
-@router.get("/admin-check")  # test endpoint, delete later
-def admin_check(user: User = Depends(admin_only)):
-    return {"message": f"Hello admin {user.full_name}"}

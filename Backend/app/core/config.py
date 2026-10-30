@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     # comma-separated list of frontend origins allowed to call the API
     cors_origins: str = "http://localhost:5173,http://localhost:5174"
 
+    # initial admin setup (one-time use, remove after first startup)
+    initial_admin_email: str | None = None
+    initial_admin_password: str | None = None
+    initial_admin_name: str | None = None
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
