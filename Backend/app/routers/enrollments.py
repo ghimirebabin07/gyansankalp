@@ -38,8 +38,8 @@ def request_enrollment(
             raise HTTPException(409, "Already enrolled in this course")
         if existing.status == EnrollmentStatus.pending:
             raise HTTPException(409, "Enrollment request pending admin approval")
-        # Reactivate revoked/expired enrollment (needs admin approval again)
-        existing.status = EnrollmentStatus.pending
+        # Reactivate revoked/expired enrollment
+        existing.status = EnrollmentStatus.active if course.price_npr == 0 else EnrollmentStatus.pending
         existing.starts_at = datetime.now(timezone.utc)
         db.commit()
         db.refresh(existing)
@@ -48,7 +48,7 @@ def request_enrollment(
     enrollment = Enrollment(
         user_id=user.id,
         course_id=course_id,
-        status=EnrollmentStatus.pending,
+        status=EnrollmentStatus.active if course.price_npr == 0 else EnrollmentStatus.pending,
         starts_at=datetime.now(timezone.utc),
         expires_at=None,
     )
