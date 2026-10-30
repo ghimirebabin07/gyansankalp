@@ -11,6 +11,8 @@ class MaterialPublic(BaseModel):
     id: int
     title: str
     page_count: int | None
+    # set by the topic materials endpoint so the student view can show context
+    topic_title: str = ""
 
 
 class MaterialOut(BaseModel):

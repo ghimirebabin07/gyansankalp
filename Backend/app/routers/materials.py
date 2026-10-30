@@ -53,7 +53,10 @@ def list_topic_materials(
         .where(Material.topic_id == topic_id, Material.status == MaterialStatus.ready)
         .order_by(Material.id)
     )
-    return db.scalars(stmt).all()
+    return [
+        MaterialPublic.model_validate(material).model_copy(update={"topic_title": topic.title})
+        for material in db.scalars(stmt).all()
+    ]
 
 
 @router.get("/materials/{material_id}/pages/{page_no}")
