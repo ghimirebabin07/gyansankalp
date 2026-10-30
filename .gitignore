@@ -31,3 +31,9 @@ Thumbs.db
 # Logs
 *.log
 logs/ 
+# Node / frontend
+node_modules/
+dist/
+.vite/
+# but keep the documented env template
+!.env.example
