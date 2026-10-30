@@ -6,7 +6,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.deps import admin_only
+from app.core.deps import get_current_admin
 from app.core.storage import Storage, get_storage
 from app.db.session import get_db
 from app.models.course import Topic
@@ -14,7 +14,7 @@ from app.models.material import Material, MaterialStatus
 from app.schemas.material import MaterialOut, MaterialUpdate
 
 router = APIRouter(
-    prefix="/admin", tags=["admin: materials"], dependencies=[Depends(admin_only)]
+    prefix="/admin", tags=["admin: materials"], dependencies=[Depends(get_current_admin)]
 )
 
 
