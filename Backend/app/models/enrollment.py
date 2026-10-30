@@ -8,6 +8,7 @@ from app.db.session import Base
 
 
 class EnrollmentStatus(str, enum.Enum):
+    pending = "pending"
     active = "active"
     expired = "expired"
     revoked = "revoked"

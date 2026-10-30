@@ -3,8 +3,9 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.deps import admin_only
+from app.core.deps import get_current_admin
 from app.db.session import get_db
+from app.models.admin import Admin
 from app.models.course import Course, Topic
 from app.schemas.course import (
     CourseAdminOut, CourseCreate, CourseUpdate,
@@ -13,7 +14,7 @@ from app.schemas.course import (
 
 # Every route in this router requires an admin.
 router = APIRouter(
-    prefix="/admin", tags=["admin: courses"], dependencies=[Depends(admin_only)]
+    prefix="/admin", tags=["admin: courses"], dependencies=[Depends(get_current_admin)]
 )
 
 

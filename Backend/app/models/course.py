@@ -13,6 +13,8 @@ class Course(Base):
     title: Mapped[str] = mapped_column(String(200))
     slug: Mapped[str] = mapped_column(String(120), unique=True, index=True)
     description: Mapped[str] = mapped_column(Text, default="")
+    syllabus: Mapped[str] = mapped_column(Text, default="")
+    exam_level: Mapped[str] = mapped_column(String(50), default="", index=True)
     price_npr: Mapped[int] = mapped_column(default=0)
     is_published: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(
