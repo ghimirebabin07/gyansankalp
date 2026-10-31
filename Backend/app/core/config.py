@@ -1,4 +1,4 @@
-from pydantic import field_validator, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict  # type: ignore
 
 
@@ -17,6 +17,15 @@ class Settings(BaseSettings):
     # set true only when a reverse proxy is present and it sets X-Forwarded-For
     trust_forwarded_for: bool = False
 
+    # logging: JSON for a log shipper, plain text for reading in a terminal
+    log_level: str = "INFO"
+    log_json: bool = False
+
+    # how long page views stay in access_logs before the worker prunes them
+    access_log_days: int = 180
+    # how long a dead refresh token stays for audit before it is purged
+    refresh_token_purge_days: int = 7
+
     # account lockout for wrong passwords
     login_max_attempts: int = 5
     login_lock_minutes: int = 15
@@ -33,6 +42,9 @@ class Settings(BaseSettings):
     s3_bucket: str = "gyansankalp-private"
     s3_region: str = "us-east-1"
     s3_create_bucket: bool = False
+    # a hung storage endpoint must not hold a request or a worker job open
+    s3_connect_timeout_seconds: int = 5
+    s3_read_timeout_seconds: int = 30
 
     # upload and conversion limits
     max_upload_mb: int = 50
@@ -43,6 +55,9 @@ class Settings(BaseSettings):
 
     # /docs and /openapi.json are useful in development and a map in production
     expose_docs: bool = False
+
+    # the public catalogue is a browser-cacheable read-only list; 0 disables it
+    public_cache_seconds: int = Field(30, ge=0, le=3600)
 
     # only set true when the API is genuinely served over HTTPS end to end
     hsts_enabled: bool = False
@@ -74,6 +89,15 @@ class Settings(BaseSettings):
         if value not in {"HS256", "HS384", "HS512"}:
             raise ValueError("JWT_ALGORITHM must be HS256, HS384 or HS512")
         return value
+
+    @field_validator("log_level")
+    @classmethod
+    def log_level_is_known(cls, value: str) -> str:
+        allowed = {"CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"}
+        normalized = value.upper()
+        if normalized not in allowed:
+            raise ValueError(f"LOG_LEVEL must be one of {sorted(allowed)}")
+        return normalized
 
     @model_validator(mode="after")
     def production_refuses_weak_settings(self) -> "Settings":

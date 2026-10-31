@@ -25,6 +25,8 @@ log = logging.getLogger(__name__)
 router = APIRouter(tags=["materials"])
 
 NO_STORE = {
+    # Every page image is stamped with the viewer's identity, so a shared CDN cache
+    # would hand one student's watermarked page to another. Never make this public.
     "Cache-Control": "private, no-store, max-age=0",
     "Pragma": "no-cache",
     "X-Content-Type-Options": "nosniff",

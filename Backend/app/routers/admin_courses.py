@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_admin
 from app.db.session import get_db
-from app.models.admin import Admin
 from app.models.course import Course, Topic
 from app.schemas.course import (
     CourseAdminOut, CourseCreate, CourseUpdate,
