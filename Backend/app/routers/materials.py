@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.access import has_course_access
 from app.core.deps import get_current_user
+from app.core.ratelimit import limit, page_view
 from app.core.storage import Storage, get_storage
 from app.core.watermark import stamp
 from app.db.session import get_db
@@ -59,7 +60,10 @@ def list_topic_materials(
     ]
 
 
-@router.get("/materials/{material_id}/pages/{page_no}")
+@router.get(
+    "/materials/{material_id}/pages/{page_no}",
+    dependencies=[Depends(limit(page_view))],
+)
 def get_page(
     request: Request,
     material_id: int,
