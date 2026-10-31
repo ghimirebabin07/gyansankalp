@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.core.access import active_conditions
+from app.core.config import settings
 from app.core.deps import get_current_user
 from app.db.session import get_db
 from app.models.course import Course, Topic
@@ -16,6 +17,12 @@ router = APIRouter(tags=["courses"])
 LIKE_ESCAPE = "\\"
 
 
+def _public_cache(response: Response) -> None:
+    """Catalogue output is identical for every visitor, so browsers may cache it briefly."""
+    if settings.public_cache_seconds > 0:
+        response.headers["Cache-Control"] = f"public, max-age={settings.public_cache_seconds}"
+
+
 def _like_contains(value: str) -> str:
     """A user-supplied % or _ is data, not a wildcard."""
     escaped = (
@@ -27,8 +34,9 @@ def _like_contains(value: str) -> str:
 
 
 @router.get("/stats")
-def get_stats(db: Session = Depends(get_db)):
+def get_stats(response: Response, db: Session = Depends(get_db)):
     """Public stats for the homepage counters."""
+    _public_cache(response)
     course_count = db.scalar(select(func.count(Course.id)).where(Course.is_published.is_(True))) or 0
     topic_count = db.scalar(
         select(func.count(Topic.id))
@@ -46,6 +54,7 @@ def get_stats(db: Session = Depends(get_db)):
 
 @router.get("/courses", response_model=list[CourseOut])
 def list_courses(
+    response: Response,
     level: str | None = Query(
         None,
         min_length=1,
@@ -54,6 +63,7 @@ def list_courses(
     ),
     db: Session = Depends(get_db),
 ):
+    _public_cache(response)
     stmt = select(Course).where(Course.is_published.is_(True)).order_by(Course.id)
     if level:
         stmt = stmt.where(
@@ -63,7 +73,12 @@ def list_courses(
 
 
 @router.get("/courses/{slug}", response_model=CourseDetail)
-def get_course(slug: str = Path(min_length=1, max_length=120), db: Session = Depends(get_db)):
+def get_course(
+    response: Response,
+    slug: str = Path(min_length=1, max_length=120),
+    db: Session = Depends(get_db),
+):
+    _public_cache(response)
     stmt = (
         select(Course)
         .options(selectinload(Course.topics))
