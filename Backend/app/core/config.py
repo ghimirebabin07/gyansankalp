@@ -12,6 +12,13 @@ class Settings(BaseSettings):
     access_token_minutes: int = 15
     refresh_token_days: int = 30
 
+    # set true only when a reverse proxy is present and it sets X-Forwarded-For
+    trust_forwarded_for: bool = False
+
+    # account lockout for wrong passwords
+    login_max_attempts: int = 5
+    login_lock_minutes: int = 15
+
     # object storage (S3-compatible: MinIO in dev, Cloudflare R2 / Backblaze B2 in production)
     s3_endpoint_url: str | None = None
     s3_access_key: str
