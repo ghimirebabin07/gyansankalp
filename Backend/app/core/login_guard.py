@@ -10,6 +10,18 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 
+# argon2 cost grows with input length, so an oversized "password" is a cheap way
+# to burn server CPU. Real credentials never come close to these limits.
+MAX_PASSWORD_LENGTH = 1024
+MAX_IDENTIFIER_LENGTH = 320
+
+
+def credentials_are_plausible(identifier: str, password: str) -> bool:
+    return (
+        len(identifier) <= MAX_IDENTIFIER_LENGTH
+        and len(password) <= MAX_PASSWORD_LENGTH
+    )
+
 
 def is_locked(account, now: datetime) -> bool:
     until = account.locked_until

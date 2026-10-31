@@ -78,6 +78,8 @@ auth_register = SlidingWindow("auth register", 5, 60 * 60)
 auth_refresh = SlidingWindow("auth refresh", 60, 10 * 60)
 admin_login = SlidingWindow("admin login", 5, 10 * 60)
 admin_upload = SlidingWindow("admin upload", 30, 60 * 60)
+# Enrollment requests write a row, so cap how many one IP can queue up per hour.
+enrollment_request = SlidingWindow("enrollment request", 20, 60 * 60)
 # A reader flipping pages in a 300-page PDF hits this route for every page.
 page_view = SlidingWindow("page view", 600, 5 * 60)
 

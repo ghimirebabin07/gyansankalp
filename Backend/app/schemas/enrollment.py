@@ -7,7 +7,7 @@ from app.models.enrollment import EnrollmentStatus
 
 class EnrollmentGrant(BaseModel):
     email: EmailStr
-    course_id: int
+    course_id: int = Field(gt=0)
     days: int | None = Field(None, ge=1, le=3650)  # None = lifetime
 
 
