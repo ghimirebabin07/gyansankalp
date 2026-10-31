@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.deps import get_current_admin
+from app.core.ratelimit import admin_upload, limit
 from app.core.storage import Storage, get_storage
 from app.db.session import get_db
 from app.models.course import Topic
@@ -25,7 +26,12 @@ def _get_material(db: Session, material_id: int) -> Material:
     return material
 
 
-@router.post("/topics/{topic_id}/materials", response_model=MaterialOut, status_code=201)
+@router.post(
+    "/topics/{topic_id}/materials",
+    response_model=MaterialOut,
+    status_code=201,
+    dependencies=[Depends(limit(admin_upload))],
+)
 def upload_material(
     topic_id: int,
     request: Request,
