@@ -8,7 +8,12 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.deps import get_current_user
-from app.core.login_guard import is_locked, register_failure, register_success
+from app.core.login_guard import (
+    credentials_are_plausible,
+    is_locked,
+    register_failure,
+    register_success,
+)
 from app.core.ratelimit import auth_login, auth_refresh, auth_register, client_ip, limit
 from app.core.security import (
     hash_password,
@@ -27,6 +32,10 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 # Verified when no account matches, so a missing user costs the same as a wrong
 # password and response time stays a bad way to probe for accounts.
 DUMMY_HASH = hash_password("not-a-real-password")
+
+
+def _bad_credentials() -> HTTPException:
+    return HTTPException(status.HTTP_401_UNAUTHORIZED, "Wrong email or password")
 
 
 def issue_tokens(db: Session, user: User) -> TokenOut:
@@ -78,18 +87,21 @@ def login(
     db: Session = Depends(get_db),
 ):
     now = datetime.now(timezone.utc)
+    if not credentials_are_plausible(form.username, form.password):
+        raise _bad_credentials()
+
     # Swagger sends the email in the "username" field
     user = db.scalar(select(User).where(User.email == form.username.lower()))
     if user is None:
         verify_password(form.password, DUMMY_HASH)
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Wrong email or password")
+        raise _bad_credentials()
 
     if not user.is_active or is_locked(user, now):
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Wrong email or password")
+        raise _bad_credentials()
 
     if not verify_password(form.password, user.password_hash):
         register_failure(db, user, now)
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Wrong email or password")
+        raise _bad_credentials()
 
     register_success(db, user)
     auth_login.reset(client_ip(request))  # a proven human is not a brute-forcer

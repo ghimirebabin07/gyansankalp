@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.access import has_course_access
+from app.core.config import settings
 from app.core.deps import get_current_user
 from app.core.ratelimit import limit, page_view
 from app.core.storage import Storage, get_storage
@@ -66,8 +67,8 @@ def list_topic_materials(
 )
 def get_page(
     request: Request,
-    material_id: int,
-    page_no: int = Path(ge=1),
+    material_id: int = Path(gt=0),
+    page_no: int = Path(ge=1, le=settings.max_pdf_pages),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
     storage: Storage = Depends(get_storage),

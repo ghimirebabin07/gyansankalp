@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
@@ -12,6 +12,18 @@ from app.models.user import User
 from app.schemas.course import CourseDetail, CourseOut
 
 router = APIRouter(tags=["courses"])
+
+LIKE_ESCAPE = "\\"
+
+
+def _like_contains(value: str) -> str:
+    """A user-supplied % or _ is data, not a wildcard."""
+    escaped = (
+        value.replace(LIKE_ESCAPE, LIKE_ESCAPE + LIKE_ESCAPE)
+        .replace("%", LIKE_ESCAPE + "%")
+        .replace("_", LIKE_ESCAPE + "_")
+    )
+    return f"%{escaped}%"
 
 
 @router.get("/stats")
@@ -34,17 +46,24 @@ def get_stats(db: Session = Depends(get_db)):
 
 @router.get("/courses", response_model=list[CourseOut])
 def list_courses(
-    level: str | None = Query(None, description="Filter by exam level (e.g. kharidar, nasu, officer)"),
+    level: str | None = Query(
+        None,
+        min_length=1,
+        max_length=50,
+        description="Filter by exam level (e.g. kharidar, nasu, officer)",
+    ),
     db: Session = Depends(get_db),
 ):
     stmt = select(Course).where(Course.is_published.is_(True)).order_by(Course.id)
     if level:
-        stmt = stmt.where(Course.exam_level.ilike(f"%{level}%"))
+        stmt = stmt.where(
+            Course.exam_level.ilike(_like_contains(level), escape=LIKE_ESCAPE)
+        )
     return db.scalars(stmt).all()
 
 
 @router.get("/courses/{slug}", response_model=CourseDetail)
-def get_course(slug: str, db: Session = Depends(get_db)):
+def get_course(slug: str = Path(min_length=1, max_length=120), db: Session = Depends(get_db)):
     stmt = (
         select(Course)
         .options(selectinload(Course.topics))
