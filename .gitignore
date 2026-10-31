@@ -15,6 +15,8 @@ __pycache__/
 # Database
 *.db
 *.sqlite3
+backups/
+*.dump
 
 # Testing
 .pytest_cache/
