@@ -23,6 +23,10 @@ class Storage:
                 signature_version="s3v4",
                 s3={"addressing_style": "path"},
                 retries={"max_attempts": 3},
+                # Without these a dead endpoint holds a request thread open for
+                # the 60 second default, and a few of those exhaust the pool.
+                connect_timeout=settings.s3_connect_timeout_seconds,
+                read_timeout=settings.s3_read_timeout_seconds,
             ),
         )
 
@@ -32,6 +36,10 @@ class Storage:
             self.client.head_bucket(Bucket=self.bucket)
         except ClientError:
             self.client.create_bucket(Bucket=self.bucket)
+
+    def ping(self) -> None:
+        """Cheapest possible round trip, used by the readiness probe."""
+        self.client.head_bucket(Bucket=self.bucket)
 
     def put_fileobj(self, key: str, fileobj: BinaryIO, content_type: str) -> None:
         self.client.upload_fileobj(
