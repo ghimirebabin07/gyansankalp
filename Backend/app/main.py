@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 
 from app.core.config import settings
+from app.core.headers import SecurityMiddleware
 from app.core.security import hash_password
 from app.core.storage import get_storage
 from app.db.session import SessionLocal
@@ -40,6 +41,12 @@ def setup_initial_admin():
             print("=" * 70 + "\n", file=sys.stderr)
             sys.exit(1)
 
+        if len(settings.initial_admin_password) < 12:
+            raise RuntimeError(
+                "INITIAL_ADMIN_PASSWORD must be at least 12 characters; the admin "
+                "account is the whole backend"
+            )
+
         admin = Admin(
             email=settings.initial_admin_email.lower(),
             full_name=settings.initial_admin_name,
@@ -64,11 +71,19 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="GyanSankalp API", lifespan=lifespan)
+app = FastAPI(
+    title="GyanSankalp API",
+    lifespan=lifespan,
+    docs_url="/docs" if settings.expose_docs else None,
+    redoc_url="/redoc" if settings.expose_docs else None,
+    openapi_url="/openapi.json" if settings.expose_docs else None,
+)
+# SecurityMiddleware goes first so CORS ends up outermost and answers preflight.
+app.add_middleware(SecurityMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
     allow_headers=["Authorization", "Content-Type"],
 )
 app.include_router(auth.router)

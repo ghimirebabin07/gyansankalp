@@ -5,8 +5,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_admin
-from app.core.login_guard import is_locked, register_failure, register_success
-from app.core.ratelimit import admin_login, client_ip, limit
+from app.core.login_guard import (
+    credentials_are_plausible,
+    is_locked,
+    register_failure,
+    register_success,
+)
+from app.core.ratelimit import admin_login as admin_login_window
+from app.core.ratelimit import client_ip, limit
 from app.core.security import (
     hash_password,
     verify_password,
@@ -22,11 +28,16 @@ router = APIRouter(prefix="/admin/auth", tags=["admin auth"])
 DUMMY_HASH = hash_password("not-a-real-password")
 
 
-@router.post("/login", response_model=AdminTokenOut, dependencies=[Depends(limit(admin_login))])
+@router.post(
+    "/login", response_model=AdminTokenOut, dependencies=[Depends(limit(admin_login_window))]
+)
 def admin_login(
     request: Request, data: AdminLoginIn, db: Session = Depends(get_db)
 ):
     now = datetime.now(timezone.utc)
+    if not credentials_are_plausible(data.email, data.password):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")
+
     admin = db.scalar(select(Admin).where(Admin.email == data.email.lower()))
     if admin is None:
         verify_password(data.password, DUMMY_HASH)
@@ -40,7 +51,7 @@ def admin_login(
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")
 
     register_success(db, admin)
-    admin_login.reset(client_ip(request))
+    admin_login_window.reset(client_ip(request))
     return AdminTokenOut(
         access_token=create_admin_access_token(admin.id),
     )

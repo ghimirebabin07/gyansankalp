@@ -27,4 +27,4 @@ class TokenOut(BaseModel):
 
 
 class RefreshIn(BaseModel):
-    refresh_token: str
+    refresh_token: str = Field(min_length=20, max_length=200)

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.security import decode_access_token
 from app.db.session import get_db
 from app.models.admin import Admin
-from app.models.user import User, Role
+from app.models.user import User
 
 oauth2 = OAuth2PasswordBearer(tokenUrl="/auth/login")
 admin_oauth2 = OAuth2PasswordBearer(tokenUrl="/admin/auth/login")
@@ -17,6 +17,10 @@ def get_current_user(
 ) -> User:
     try:
         payload = decode_access_token(token)
+        # Both token kinds share one secret, so this is the only thing telling
+        # them apart. Without it a student token reaches the admin dependency.
+        if payload.get("type") != "user":
+            raise HTTPException(status.HTTP_403_FORBIDDEN, "Student access required")
         user_id = int(payload["sub"])
     except (jwt.PyJWTError, KeyError, ValueError):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired token")
@@ -24,12 +28,6 @@ def get_current_user(
     user = db.get(User, user_id)
     if not user or not user.is_active:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User not found or disabled")
-    return user
-
-
-def admin_only(user: User = Depends(get_current_user)) -> User:
-    if user.role != Role.admin:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Admin only")
     return user
 
 
