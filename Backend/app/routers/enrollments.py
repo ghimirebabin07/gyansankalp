@@ -1,11 +1,12 @@
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user
+from app.core.ratelimit import enrollment_request, limit
 from app.db.session import get_db
 from app.models.course import Course
 from app.models.enrollment import Enrollment, EnrollmentStatus
@@ -15,9 +16,14 @@ from app.schemas.enrollment import EnrollmentOut
 router = APIRouter(prefix="/enrollments", tags=["enrollments"])
 
 
-@router.post("", response_model=EnrollmentOut, status_code=201)
+@router.post(
+    "",
+    response_model=EnrollmentOut,
+    status_code=201,
+    dependencies=[Depends(limit(enrollment_request))],
+)
 def request_enrollment(
-    course_id: int,
+    course_id: int = Query(gt=0),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
