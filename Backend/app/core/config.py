@@ -91,6 +91,11 @@ class Settings(BaseSettings):
     smtp_password: str | None = None
     smtp_use_tls: bool = True
     mail_from: str | None = None
+    # Render blocks outbound SMTP on its free tier, so a deployed API cannot open a
+    # socket to a mail server at all. This sends the same messages over HTTPS on
+    # port 443 instead, which no host blocks. Set, it wins over the SMTP settings
+    # above - which stay useful for mailing from a laptop, where SMTP works.
+    brevo_api_key: str | None = None
     # the SPA page the verification link points at
     verify_link_base: str = "http://localhost:5173/verify-email"
     email_verify_hours: int = Field(24, ge=1, le=168)
@@ -182,9 +187,12 @@ class Settings(BaseSettings):
         if self.expose_docs:
             problems.append("EXPOSE_DOCS must be false in production")
         # Without a mail sender nobody can ever verify an address, so password
-        # accounts stay half-created and Google sign-in cannot link to them.
-        if not self.smtp_host:
-            problems.append("SMTP_HOST must be set in production to send verification email")
+        # accounts stay half-created and Google sign-in cannot link to them. Staff
+        # codes are worse still: no delivery means no second factor at all.
+        if not (self.brevo_api_key or self.smtp_host):
+            problems.append(
+                "production needs a mail sender: BREVO_API_KEY (over HTTPS) or SMTP_HOST"
+            )
         if not self.mail_from:
             problems.append("MAIL_FROM must be set in production")
         if bool(self.smtp_username) != bool(self.smtp_password):

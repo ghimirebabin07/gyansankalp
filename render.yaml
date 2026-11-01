@@ -49,7 +49,7 @@ services:
       - key: DB_POOL_MAX_OVERFLOW
         value: "2"
       - key: SMTP_HOST
-        value: smtp.gmail.com
+        value: smtp.gmail.com # dead on this plan: Render blocks outbound 25/465/587
       - key: SMTP_PORT
         value: "587"
       - key: SMTP_USERNAME
@@ -59,6 +59,12 @@ services:
         sync: false
         isSensitive: true
       - key: MAIL_FROM
+        sync: false
+        isSensitive: true
+      # The only sender that works here, because it is an HTTPS call on port 443.
+      # Set, it takes precedence over the SMTP keys above. The worker sends no
+      # mail, so it does not need this.
+      - key: BREVO_API_KEY
         sync: false
         isSensitive: true
       # sync: false keeps the Supabase project reference out of a public
