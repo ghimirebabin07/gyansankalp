@@ -76,7 +76,18 @@ class SlidingWindow:
 auth_login = SlidingWindow("auth login", 10, 5 * 60)
 auth_register = SlidingWindow("auth register", 5, 60 * 60)
 auth_refresh = SlidingWindow("auth refresh", 60, 10 * 60)
-admin_login = SlidingWindow("admin login", 5, 10 * 60)
+# A Google credential has to be checked against Google's keys, so cap how often
+# one IP can make the server do that work.
+auth_google = SlidingWindow("google sign in", 20, 5 * 60)
+auth_verify = SlidingWindow("confirm email", 20, 5 * 60)
+# One address cannot get more than a few messages an hour out of a shared IP.
+auth_resend_verification = SlidingWindow("resend confirmation", 3, 60 * 60)
+admin_google = SlidingWindow("staff google sign in", 20, 5 * 60)
+# The code itself is capped per attempt set in the database; this window only
+# limits how many mailboxes one IP can make the server mail.
+admin_otp_verify = SlidingWindow("staff code verify", 30, 10 * 60)
+admin_otp_resend = SlidingWindow("staff code resend", 5, 10 * 60)
+admin_refresh = SlidingWindow("staff refresh", 200, 60 * 60)
 admin_upload = SlidingWindow("admin upload", 30, 60 * 60)
 # Enrollment requests write a row, so cap how many one IP can queue up per hour.
 enrollment_request = SlidingWindow("enrollment request", 20, 60 * 60)

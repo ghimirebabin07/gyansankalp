@@ -63,11 +63,11 @@ class Storage:
     def delete_prefix(self, prefix: str) -> None:
         paginator = self.client.get_paginator("list_objects_v2")
         for page in paginator.paginate(Bucket=self.bucket, Prefix=prefix):
-            objects = [{"Key": o["Key"]} for o in page.get("Contents", [])]
-            if objects:
-                self.client.delete_objects(
-                    Bucket=self.bucket, Delete={"Objects": objects}
-                )
+            for obj in page.get("Contents", []):
+                # One DELETE per key rather than the batched DeleteObjects call:
+                # Supabase's S3 endpoint rejects that with 400 InvalidRequest, and
+                # per-key works on every provider this app targets.
+                self.client.delete_object(Bucket=self.bucket, Key=obj["Key"])
 
 
 @lru_cache
