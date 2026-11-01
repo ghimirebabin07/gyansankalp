@@ -3,13 +3,19 @@
 Run it as its own process (never inside the web app):
 
     python -m app.worker
+
+On Render it is deployed as a second web service, which is why it answers HTTP:
+see _HealthHandler. Set PORT to give it that listener; leave it unset locally.
 """
 import io
 import logging
+import os
 import signal
 import tempfile
+import threading
 import time
 from datetime import datetime, timedelta, timezone
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pymupdf
 from PIL import Image
@@ -252,6 +258,25 @@ def run_maintenance() -> None:
         )
 
 
+class _HealthHandler(BaseHTTPRequestHandler):
+    """Answers anything with 200 while the process is alive.
+
+    Render cancels a web service that never binds its port, so a worker with no
+    HTTP listener would be killed after 15 minutes. A daemon thread keeps
+    answering during a long conversion, which is exactly when a restart would be
+    worst: the job would be left "processing" until STALE_AFTER reclaimed it.
+    """
+
+    def do_GET(self):  # noqa: N802 - name is fixed by BaseHTTPRequestHandler
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"ok\n")
+
+    def log_message(self, *_args):
+        pass  # a 200-line-per-hour access log for a pinger is pure noise
+
+
 def main() -> None:
     configure_logging()
     storage = get_storage()
@@ -263,6 +288,12 @@ def main() -> None:
 
     signal.signal(signal.SIGTERM, _stop)
     signal.signal(signal.SIGINT, _stop)
+
+    port = os.environ.get("PORT")
+    if port:  # set by Render; running this by hand should not grab a port
+        server = ThreadingHTTPServer(("0.0.0.0", int(port)), _HealthHandler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        log.info("health server listening on :%s", port)
 
     log.info("worker started")
     next_maintenance = datetime.now(timezone.utc)

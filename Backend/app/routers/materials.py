@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.access import has_course_access
 from app.core.config import settings
 from app.core.deps import get_current_user
-from app.core.ratelimit import limit, page_view
+from app.core.ratelimit import client_ip, limit, page_view
 from app.core.storage import Storage, get_storage
 from app.core.watermark import stamp
 from app.db.session import get_db
@@ -111,7 +111,7 @@ def get_page(
             user_id=user.id,
             material_id=material.id,
             page_no=page_no,
-            ip=request.client.host if request.client else None,
+            ip=client_ip(request),
         )
     )
     db.commit()

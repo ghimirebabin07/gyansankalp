@@ -1,0 +1,30 @@
+name: keep-alive
+
+# Render free sleeps a service after 15 idle minutes, and Supabase free pauses a
+# project after a week of silence. One ping keeps both warm, because /ready runs
+# a real query. Ten minutes leaves a five-minute margin on Render's timer.
+#
+# 0-17 UTC is 05:45-23:35 NPT: awake through the hours anyone actually studies,
+# dark overnight. That is deliberate - Render grants 750 free instance hours per
+# workspace per month, and a service pinged around the clock spends 744 of them
+# by itself. Only the API is pinged; it wakes the worker when a PDF needs
+# converting, so the worker costs minutes instead of months.
+on:
+  schedule:
+    - cron: "*/10 0-17 * * *"
+
+jobs:
+  warm:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping the API's readiness probe
+        env:
+          RENDER_READY_URL: ${{ secrets.RENDER_READY_URL }}
+        run: |
+          if [ -z "$RENDER_READY_URL" ]; then
+            echo "RENDER_READY_URL is not set in repository secrets" >&2
+            exit 1
+          fi
+          # A degraded /ready answers 503, which is information for a human, not
+          # a reason to fail a ping. Cold starts take up to a minute.
+          curl -sS -o /dev/null --max-time 90 "$RENDER_READY_URL" || true
