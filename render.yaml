@@ -36,7 +36,7 @@ services:
       - key: CORS_ORIGINS
         value: https://gyansankalp.babinghimire.com.np,https://gyansankalp.pages.dev
       - key: VERIFY_LINK_BASE
-        value: https://gyansankalp.babinghimire.com.np/verify-email
+        value: https://gyansankalp.pages.dev/verify-email
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: EXPOSE_DOCS
@@ -111,7 +111,7 @@ services:
       # The guard reads this in every process because a verification link carries
       # a token, and it refuses the http://localhost default under APP_ENV.
       - key: VERIFY_LINK_BASE
-        value: https://gyansankalp.babinghimire.com.np/verify-email
+        value: https://gyansankalp.pages.dev/verify-email
       - key: EXPOSE_DOCS
         value: "false"
       - key: LOG_JSON
