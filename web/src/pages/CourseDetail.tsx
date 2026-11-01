@@ -13,8 +13,6 @@ export default function CourseDetail() {
   const toast = useToast();
   useEffect(() => { api.get(`/courses/${slug}`).then((r) => setC(r.data)).catch(() => setC(null)); }, [slug]);
 
-  const isFree = c.price_npr === 0;
-
   const enroll = async () => {
     setBusy(true);
     try {
@@ -30,6 +28,8 @@ export default function CourseDetail() {
       <Link to="/courses" className="inline-flex items-center gap-1 text-blue-600 font-semibold hover:gap-2 transition-all">← Back to courses</Link>
     </div>
   );
+
+  const isFree = c.price_npr === 0;
 
   const topics = [...(c.topics ?? [])].sort((a: any, b: any) => a.position - b.position);
 
