@@ -161,6 +161,9 @@ jobs:
       SMTP_HOST: smtp.example
       SMTP_USERNAME: ci
       SMTP_PASSWORD: ci-only-not-a-secret
+      # Staff have no password any more, so production refuses to boot without
+      # the Google client id. CI carries a production-shaped one.
+      GOOGLE_CLIENT_ID: ci-only-google-client.apps.googleusercontent.com
       MAIL_FROM: no-reply@gyansankalp.example
       VERIFY_LINK_BASE: https://gyansankalp.example/verify-email
     steps:
