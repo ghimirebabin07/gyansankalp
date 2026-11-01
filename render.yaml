@@ -106,10 +106,12 @@ services:
       - key: ADMIN_JWT_SECRET
         sync: false
         isSensitive: true
-      # The production guard checks this on every process, worker included, even
-      # though the worker never answers a browser.
       - key: CORS_ORIGINS
         value: https://gyansankalp.babinghimire.com.np,https://gyansankalp.pages.dev
+      # The guard reads this in every process because a verification link carries
+      # a token, and it refuses the http://localhost default under APP_ENV.
+      - key: VERIFY_LINK_BASE
+        value: https://gyansankalp.babinghimire.com.np/verify-email
       - key: EXPOSE_DOCS
         value: "false"
       - key: LOG_JSON
