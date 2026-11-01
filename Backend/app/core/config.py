@@ -71,6 +71,10 @@ class Settings(BaseSettings):
     # upload and conversion limits
     max_upload_mb: int = 50
     max_pdf_pages: int = 800
+    # The worker is a Render web service too, and Render sleeps a service that
+    # receives no traffic. Rather than pay to keep it awake, the API pokes this
+    # URL after an upload. Unset means "the worker runs somewhere permanent".
+    worker_url: str | None = None
 
     # comma-separated list of frontend origins allowed to call the API
     cors_origins: str = "http://localhost:5173,http://localhost:5174"

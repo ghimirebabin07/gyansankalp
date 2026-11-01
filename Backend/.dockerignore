@@ -1,0 +1,14 @@
+# The image must not carry the developer's configuration: .env holds the local
+# database password and .env.prod holds the production ones.
+.env
+.env.*
+
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# pg_dump output and the local-only Postgres role/backup scripts.
+backups/
+scripts/

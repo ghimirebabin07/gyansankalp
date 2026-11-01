@@ -1,0 +1,146 @@
+# Render Blueprint: two free web services built from Backend/Dockerfile.
+#
+# Render's free tier is the reason for the odd shapes below:
+#   * 750 free instance hours per workspace per month, so nothing here runs
+#     around the clock. The keep-alive workflow pings the API during study hours
+#     only, and the worker is woken by the API when an upload needs it.
+#   * There is no free background-worker type, so the worker is a web service
+#     that must answer HTTP or Render cancels its deploy.
+#
+# Anything with `sync: false` is a value you type once in the Render dashboard;
+# it is deliberately absent here because this repository is public.
+services:
+  - type: web
+    name: gyansankalp-api
+    region: singapore # same region as the Supabase project, to keep queries local
+    plan: free
+    branch: main
+    env: docker
+    dockerContext: ./Backend
+    dockerfilePath: ./Backend/Dockerfile
+    healthCheckPath: /health # liveness only: a Supabase hiccup must not restart us
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+        isSensitive: true
+      - key: JWT_SECRET
+        sync: false
+        isSensitive: true
+      - key: ADMIN_JWT_SECRET
+        sync: false
+        isSensitive: true
+      - key: TRUST_FORWARDED_FOR
+        value: "true" # Render and Cloudflare both proxy, so X-Forwarded-For is the client
+      - key: CORS_ORIGINS
+        value: https://gyansankalp.babinghimire.com.np,https://gyansankalp.pages.dev
+      - key: VERIFY_LINK_BASE
+        value: https://gyansankalp.babinghimire.com.np/verify-email
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: EXPOSE_DOCS
+        value: "false"
+      - key: LOG_JSON
+        value: "true"
+      # Two processes on one 0.5 GB database: 10 connections each would be rude.
+      - key: DB_POOL_SIZE
+        value: "3"
+      - key: DB_POOL_MAX_OVERFLOW
+        value: "2"
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USERNAME
+        sync: false
+        isSensitive: true
+      - key: SMTP_PASSWORD
+        sync: false
+        isSensitive: true
+      - key: MAIL_FROM
+        sync: false
+        isSensitive: true
+      # sync: false keeps the Supabase project reference out of a public
+      # repository; the value is the storage endpoint from Backend/.env.prod.
+      - key: S3_ENDPOINT_URL
+        sync: false
+      - key: S3_BUCKET
+        value: gyansankalp-private
+      - key: S3_REGION
+        value: us-east-1
+      - key: S3_CREATE_BUCKET
+        value: "false"
+      - key: S3_ACCESS_KEY
+        sync: false
+        isSensitive: true
+      - key: S3_SECRET_KEY
+        sync: false
+        isSensitive: true
+      # The worker's own URL, filled in once it exists. Empty means "the worker
+      # runs permanently somewhere else", and uploads then simply queue.
+      - key: WORKER_URL
+        sync: false
+
+  - type: web
+    name: gyansankalp-worker
+    region: singapore
+    plan: free
+    branch: main
+    env: docker
+    dockerContext: ./Backend
+    dockerfilePath: ./Backend/Dockerfile
+    # Same image, different entrypoint. Without a listener Render would report
+    # "not listening on the expected port" and cancel the deploy.
+    dockerCommand: python -m app.worker
+    healthCheckPath: /healthz
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+        isSensitive: true
+      - key: JWT_SECRET
+        sync: false
+        isSensitive: true
+      - key: ADMIN_JWT_SECRET
+        sync: false
+        isSensitive: true
+      # The production guard checks this on every process, worker included, even
+      # though the worker never answers a browser.
+      - key: CORS_ORIGINS
+        value: https://gyansankalp.babinghimire.com.np,https://gyansankalp.pages.dev
+      - key: EXPOSE_DOCS
+        value: "false"
+      - key: LOG_JSON
+        value: "true"
+      - key: DB_POOL_SIZE
+        value: "3"
+      - key: DB_POOL_MAX_OVERFLOW
+        value: "2"
+      # The worker never sends mail, but the production guard insists on a sender
+      # and a Google client id in every process. It gets those two and NOT the
+      # SMTP login: a compromised worker must not hold the mailbox password.
+      - key: SMTP_HOST
+        value: smtp.gmail.com
+      - key: SMTP_PORT
+        value: "587"
+      - key: MAIL_FROM
+        sync: false
+        isSensitive: true
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: S3_ENDPOINT_URL
+        sync: false
+      - key: S3_BUCKET
+        value: gyansankalp-private
+      - key: S3_REGION
+        value: us-east-1
+      - key: S3_CREATE_BUCKET
+        value: "false"
+      - key: S3_ACCESS_KEY
+        sync: false
+        isSensitive: true
+      - key: S3_SECRET_KEY
+        sync: false
+        isSensitive: true

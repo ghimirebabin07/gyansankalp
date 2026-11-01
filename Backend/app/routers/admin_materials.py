@@ -1,6 +1,9 @@
+import logging
 import os
+import threading
 import uuid
 
+import httpx
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
@@ -18,6 +21,29 @@ from app.schemas.material import MaterialOut, MaterialUpdate
 router = APIRouter(
     prefix="/admin", tags=["admin: materials"], dependencies=[Depends(require(Cap.content_read))]
 )
+
+log = logging.getLogger("admin.materials")
+
+
+def _wake_worker() -> None:
+    """Ask the conversion worker to start polling for the job just queued.
+
+    A Render free service that gets no traffic sleeps, and a sleeping worker
+    would leave a fresh PDF pending until something woke it. Waking takes half a
+    minute, so this runs on its own thread: the admin's upload response must not
+    wait on it.
+    """
+    url = settings.worker_url
+    if not url:
+        return
+
+    def _ping() -> None:
+        try:
+            httpx.get(url, timeout=120)
+        except Exception:
+            log.warning("could not wake the conversion worker")
+
+    threading.Thread(target=_ping, daemon=True).start()
 
 
 def _get_material(db: Session, material_id: int) -> Material:
@@ -78,6 +104,7 @@ def upload_material(
     db.refresh(material)
     record(db, admin, "material.uploaded", target=f"{topic_id}/{material.title}", request=request)
     db.commit()
+    _wake_worker()
     return material
 
 
