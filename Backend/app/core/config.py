@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_minutes: int = 15
     refresh_token_days: int = 30
+    # Admin tokens get their own key: one leaked student-token secret must not be
+    # able to mint an admin token.
+    admin_jwt_secret: str
 
     # set true only when a reverse proxy is present and it sets X-Forwarded-For
     trust_forwarded_for: bool = False
@@ -29,6 +32,25 @@ class Settings(BaseSettings):
     # account lockout for wrong passwords
     login_max_attempts: int = 5
     login_lock_minutes: int = 15
+
+    # staff sign-in: Google proves who they are, an emailed code proves they can
+    # read that mailbox. Both halves happen in the same login, minutes apart.
+    admin_access_token_minutes: int = Field(15, ge=5, le=120)
+    # One working day, so a night off ends the session and the code comes back.
+    admin_refresh_token_days: int = Field(1, ge=1, le=30)
+    admin_otp_minutes: int = Field(5, ge=1, le=15)
+    admin_otp_max_attempts: int = Field(5, ge=3, le=10)
+    # A code is spent or dead; the pass that lets you keep trying lives a little
+    # longer, so the last code sent still has somewhere to be typed.
+    admin_otp_challenge_minutes: int = Field(10, ge=5, le=30)
+    admin_otp_resend_seconds: int = Field(60, ge=15, le=600)
+    # how long staff action records stay before the worker prunes them
+    admin_activity_log_days: int = Field(365, ge=30, le=3650)
+    # The staff list itself, read only by app.scripts.seed_staff: comma-separated
+    # "email:Full Name:role" entries. It lives in .env because these addresses are
+    # the accounts allowed through the admin door, and a repository should not name
+    # them.
+    staff_roster: str = ""
 
     # connection pool and driver limits
     db_pool_size: int = 10
@@ -53,6 +75,22 @@ class Settings(BaseSettings):
     # comma-separated list of frontend origins allowed to call the API
     cors_origins: str = "http://localhost:5173,http://localhost:5174"
 
+    # Google sign-in. The client id is public - it is what proves an ID token was
+    # issued for this site and not for someone else's app.
+    google_client_id: str | None = None
+    google_jwks_url: str = "https://www.googleapis.com/oauth2/v3/certs"
+
+    # verification email: left unset, links are printed to the log instead of sent
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_use_tls: bool = True
+    mail_from: str | None = None
+    # the SPA page the verification link points at
+    verify_link_base: str = "http://localhost:5173/verify-email"
+    email_verify_hours: int = Field(24, ge=1, le=168)
+
     # /docs and /openapi.json are useful in development and a map in production
     expose_docs: bool = False
 
@@ -61,11 +99,6 @@ class Settings(BaseSettings):
 
     # only set true when the API is genuinely served over HTTPS end to end
     hsts_enabled: bool = False
-
-    # initial admin setup (one-time use, remove after first startup)
-    initial_admin_email: str | None = None
-    initial_admin_password: str | None = None
-    initial_admin_name: str | None = None
 
     @property
     def cors_origin_list(self) -> list[str]:
@@ -78,6 +111,25 @@ class Settings(BaseSettings):
             raise ValueError(
                 "JWT_SECRET must be at least 32 characters. Generate one with "
                 'python -c "import secrets; print(secrets.token_urlsafe(48))"'
+            )
+        return value
+
+    @field_validator("admin_jwt_secret")
+    @classmethod
+    def admin_secret_is_separate_and_long_enough(cls, value: str) -> str:
+        if len(value) < 32:
+            raise ValueError("ADMIN_JWT_SECRET must be at least 32 characters")
+        return value
+
+    # A typo here means every Google token fails the audience check and sign-in
+    # looks broken with no obvious cause, so reject anything that is not one.
+    @field_validator("google_client_id")
+    @classmethod
+    def google_client_id_looks_real(cls, value: str | None) -> str | None:
+        if value and not value.endswith(".apps.googleusercontent.com"):
+            raise ValueError(
+                "GOOGLE_CLIENT_ID must be the value from Google Cloud Console, "
+                "which ends in .apps.googleusercontent.com"
             )
         return value
 
@@ -100,6 +152,13 @@ class Settings(BaseSettings):
         return normalized
 
     @model_validator(mode="after")
+    def keys_are_distinct(self) -> "Settings":
+        # Reusing the student key would make the separation only a name.
+        if self.admin_jwt_secret == self.jwt_secret:
+            raise ValueError("ADMIN_JWT_SECRET must differ from JWT_SECRET")
+        return self
+
+    @model_validator(mode="after")
     def production_refuses_weak_settings(self) -> "Settings":
         if self.app_env != "production":
             return self
@@ -107,6 +166,8 @@ class Settings(BaseSettings):
         problems: list[str] = []
         if len(self.jwt_secret) < 48:
             problems.append("JWT_SECRET must be at least 48 characters in production")
+        if len(self.admin_jwt_secret) < 48:
+            problems.append("ADMIN_JWT_SECRET must be at least 48 characters in production")
         if "sslmode=" not in self.database_url or "sslmode=disable" in self.database_url:
             problems.append("DATABASE_URL must set sslmode=require (or verify-full) in production")
         if self.s3_endpoint_url and not self.s3_endpoint_url.startswith("https://"):
@@ -116,6 +177,22 @@ class Settings(BaseSettings):
                 problems.append(f"CORS_ORIGINS entry is not https: {origin}")
         if self.expose_docs:
             problems.append("EXPOSE_DOCS must be false in production")
+        # Without a mail sender nobody can ever verify an address, so password
+        # accounts stay half-created and Google sign-in cannot link to them.
+        if not self.smtp_host:
+            problems.append("SMTP_HOST must be set in production to send verification email")
+        if not self.mail_from:
+            problems.append("MAIL_FROM must be set in production")
+        if bool(self.smtp_username) != bool(self.smtp_password):
+            problems.append("SMTP_USERNAME and SMTP_PASSWORD must be set together")
+        # Staff have no password to fall back on: without a client id there is no
+        # way to reach the admin panel, and without mail there is no way past it.
+        if not self.google_client_id:
+            problems.append(
+                "GOOGLE_CLIENT_ID must be set in production - it is the only staff sign-in"
+            )
+        if self.verify_link_base.startswith("http://"):
+            problems.append("VERIFY_LINK_BASE must be https in production - it carries a token")
         if problems:
             raise ValueError("unsafe production configuration: " + "; ".join(problems))
         return self

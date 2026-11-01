@@ -28,6 +28,13 @@ def request_enrollment(
     db: Session = Depends(get_db),
 ):
     """Students request enrollment. Admin must approve before access is granted."""
+    if not user.email_verified_at:
+        raise HTTPException(
+            403,
+            "Confirm your email address first. We sent a link to "
+            f"{user.email} - use resend if it did not arrive.",
+        )
+
     course = db.get(Course, course_id)
     if not course or not course.is_published:
         raise HTTPException(404, "Course not found")

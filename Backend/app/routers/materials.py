@@ -18,7 +18,7 @@ from app.db.session import get_db
 from app.models.access_log import AccessLog
 from app.models.course import Topic
 from app.models.material import Material, MaterialStatus
-from app.models.user import Role, User
+from app.models.user import User
 from app.schemas.material import MaterialPublic
 
 log = logging.getLogger(__name__)
@@ -35,9 +35,12 @@ NO_STORE = {
 
 
 def _require_access(db: Session, user: User, course_id: int) -> None:
-    """Admins may preview everything. Students need an active enrollment."""
-    if user.role == Role.admin:
-        return
+    """Students need an active enrollment, and that is the only rule.
+
+    A role column on the student table is not an override: the admin panel is a
+    separate system with its own table and its own key, so a promoted student
+    row must never become a second door into everyone's material.
+    """
     if not has_course_access(db, user.id, course_id):
         raise HTTPException(403, "You do not have access to this course")
 
@@ -92,10 +95,13 @@ def get_page(
         raise HTTPException(404, "Page not found")
 
     now = datetime.now(timezone.utc)
+    # Google students have no phone number, but the stamp has to name one person
+    # and one person only, or a leaked page cannot be traced.
+    identifier = user.phone or user.email
     stamped = stamp(
         Image.open(io.BytesIO(raw)),
-        text=f"{user.phone}  ID{user.id}",
-        footer=f"{user.phone} | ID{user.id} | {now:%Y-%m-%d %H:%M} UTC",
+        text=f"{identifier}  ID{user.id}",
+        footer=f"{identifier} | ID{user.id} | {now:%Y-%m-%d %H:%M} UTC",
     )
     out = io.BytesIO()
     stamped.save(out, "JPEG", quality=80)

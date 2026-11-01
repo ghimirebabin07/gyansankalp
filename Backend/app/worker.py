@@ -21,9 +21,11 @@ from app.core.observability import configure_logging
 from app.core.storage import Storage, get_storage
 from app.db.session import SessionLocal
 from app.models.access_log import AccessLog
+from app.models.admin import AdminActivityLog, AdminOtp, AdminRefreshToken
 from app.models.enrollment import Enrollment, EnrollmentStatus
 from app.models.material import Material, MaterialStatus
 from app.models.refresh_token import RefreshToken
+from app.models.user import GoogleTokenUse
 
 log = logging.getLogger("worker")
 
@@ -204,12 +206,49 @@ def run_maintenance() -> None:
                 AccessLog.created_at < now - timedelta(days=settings.access_log_days)
             )
         ).rowcount
+
+        # Google ID tokens are worthless to a replay attempt after their own hour;
+        # a day of cushion keeps clock skew and retries covered.
+        replays = db.execute(
+            delete(GoogleTokenUse).where(
+                GoogleTokenUse.created_at < now - timedelta(days=1)
+            )
+        ).rowcount
+
+        # A spent code and an expired code are both worthless, but they are kept for
+        # an hour so a support question about a failed login still has something to
+        # point at. Nothing here holds a plaintext code - only hashes.
+        codes = db.execute(
+            delete(AdminOtp).where(
+                or_(
+                    AdminOtp.expires_at < now - timedelta(hours=1),
+                    AdminOtp.consumed_at < now - timedelta(hours=1),
+                )
+            )
+        ).rowcount
+
+        staff_tokens = db.execute(
+            delete(AdminRefreshToken).where(
+                AdminRefreshToken.expires_at
+                < now - timedelta(days=settings.refresh_token_purge_days)
+            )
+        ).rowcount
+
+        staff_logs = db.execute(
+            delete(AdminActivityLog).where(
+                AdminActivityLog.created_at
+                < now - timedelta(days=settings.admin_activity_log_days)
+            )
+        ).rowcount
         db.commit()
 
-    if lapsed or tokens or logs:
+    if lapsed or tokens or logs or replays or codes or staff_tokens or staff_logs:
         log.info(
-            "maintenance: %s enrollment(s) expired, %s token(s) purged, %s access log(s) pruned",
-            lapsed, tokens, logs,
+            "maintenance: %s enrollment(s) expired, %s token(s) purged, "
+            "%s access log(s) pruned, %s google sign-in(s) forgotten, "
+            "%s staff code(s) and %s staff token(s) removed, "
+            "%s staff action(s) pruned",
+            lapsed, tokens, logs, replays, codes, staff_tokens, staff_logs,
         )
 
 

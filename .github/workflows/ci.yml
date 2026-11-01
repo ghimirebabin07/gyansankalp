@@ -32,6 +32,7 @@ jobs:
     env:
       DATABASE_URL: postgresql+psycopg://ci:ci-only-not-a-secret@localhost:55432/gyansankalp_ci
       JWT_SECRET: ci-only-jwt-secret-value-not-used-anywhere-32
+      ADMIN_JWT_SECRET: ci-only-admin-jwt-secret-not-used-anywhere-thirty-two
       S3_ACCESS_KEY: ci
       S3_SECRET_KEY: ci-only-not-a-secret
       S3_ENDPOINT_URL: http://localhost:9999
@@ -73,13 +74,30 @@ jobs:
         run: |
           set -e
           export APP_ENV=production
+          export CORS_ORIGINS=https://gyansankalp.example
+          export DATABASE_URL="postgresql+psycopg://ci:ci-only-not-a-secret@localhost:55432/gyansankalp_ci?sslmode=require"
           export JWT_SECRET=short
-          export DATABASE_URL="postgresql+psycopg://ci:pw@localhost:55432/gyansankalp_ci?sslmode=disable"
-          if python -c "from app.core.config import Settings; Settings()"; then
-            echo "production guard did not fire" >&2
+          export ADMIN_JWT_SECRET=also-short-admin-secret
+          if python -c "from app.core.config import Settings; Settings()" 2>/dev/null; then
+            echo "production guard did not fire on short secrets" >&2
             exit 1
           fi
-          echo "production guard rejected the weak configuration"
+          # Long enough and otherwise valid: the only problem left is one key for
+          # both auth systems, which is not separation.
+          export JWT_SECRET=ci-only-production-shaped-secret-value-thirty-two-chars-long
+          export ADMIN_JWT_SECRET=$JWT_SECRET
+          export SMTP_HOST=smtp.example
+          export MAIL_FROM=no-reply@gyansankalp.example
+          export VERIFY_LINK_BASE=https://gyansankalp.example/verify-email
+          if python -c "from app.core.config import Settings; Settings()" 2>/tmp/guard.log; then
+            echo "production accepted an admin key identical to the student key" >&2
+            exit 1
+          fi
+          grep -q "must differ from JWT_SECRET" /tmp/guard.log || {
+            echo "the failure was not about the shared key: $(cat /tmp/guard.log)" >&2
+            exit 1
+          }
+          echo "production guard rejected short secrets and a shared admin key"
 
   # The frontend may not be pushed yet, so the job decides for itself instead of
   # failing a backend-only run on a missing package.json.
@@ -132,11 +150,19 @@ jobs:
       # correct configuration, not that CI holds the real secrets.
       DATABASE_URL: postgresql+psycopg://ci:ci-only-not-a-secret@localhost:55432/gyansankalp_ci?sslmode=require
       JWT_SECRET: ci-only-production-shaped-secret-value-thirty-two-chars-long
+      ADMIN_JWT_SECRET: ci-only-production-shaped-admin-secret-value-forty-eight-chars
       S3_ACCESS_KEY: ci
       S3_SECRET_KEY: ci-only-not-a-secret
       S3_ENDPOINT_URL: https://s3.ap-southeast-1.amazonaws.com
       CORS_ORIGINS: https://gyansankalp.example
       EXPOSE_DOCS: "false"
+      # Verification email is part of the student flow, so a production-shaped
+      # configuration has to carry mail settings too.
+      SMTP_HOST: smtp.example
+      SMTP_USERNAME: ci
+      SMTP_PASSWORD: ci-only-not-a-secret
+      MAIL_FROM: no-reply@gyansankalp.example
+      VERIFY_LINK_BASE: https://gyansankalp.example/verify-email
     steps:
       - uses: actions/checkout@v4
 
