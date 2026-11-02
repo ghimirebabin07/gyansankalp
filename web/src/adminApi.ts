@@ -4,6 +4,16 @@ import { useAdminAuth } from "./adminStore";
 const base = import.meta.env.VITE_API_URL;
 export const adminApi = axios.create({ baseURL: base });
 
+// Render's free worker sleeps after 15 idle minutes, and the API cannot wake it:
+// from inside the platform the hostname resolves to a private address with
+// nothing listening. A request from this browser reaches the public edge, which
+// boots the worker and holds the connection until it answers. The reply is
+// opaque and never read - the request itself is the whole point.
+const workerHealth: string | undefined = import.meta.env.VITE_WORKER_URL;
+export function wakeWorker() {
+  if (workerHealth) void fetch(workerHealth, { mode: "no-cors", keepalive: true }).catch(() => {});
+}
+
 declare module "axios" {
   export interface AxiosRequestConfig {
     // Set on the one request a renewal already replayed, so a still-refused call
