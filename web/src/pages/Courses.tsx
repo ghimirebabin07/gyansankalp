@@ -62,7 +62,7 @@ export default function Courses() {
     <div>
       <FadeIn>
         <div className="mb-8">
-          <h1 className="text-4xl font-bold">All Courses</h1>
+          <h1 className="text-3xl sm:text-4xl font-bold">All Courses</h1>
           <p className="text-slate-500 mt-2 text-lg">Browse our available courses and start learning.</p>
         </div>
       </FadeIn>

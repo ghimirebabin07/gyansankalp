@@ -104,7 +104,7 @@ export default function AdminLogin() {
   };
 
   const inputClass =
-    "w-12 h-14 text-center text-2xl font-bold bg-white/10 border border-white/20 rounded-xl " +
+    "flex-1 min-w-0 max-w-12 h-14 text-center text-xl sm:text-2xl font-bold bg-white/10 border border-white/20 rounded-xl " +
     "text-white focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-400/30 transition-all";
 
   return (
@@ -123,7 +123,7 @@ export default function AdminLogin() {
           <p className="text-slate-400 mt-2">Staff access only</p>
         </div>
 
-        <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-8 shadow-2xl">
+        <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-6 sm:p-8 shadow-2xl">
           {!challenge && (
             googleSignInEnabled ? (
               <div className="space-y-6">
@@ -154,7 +154,7 @@ export default function AdminLogin() {
                 </p>
               </div>
 
-              <div className="flex justify-between gap-2" onPaste={(e) => {
+              <div className="flex gap-1.5 sm:gap-2" onPaste={(e) => {
                 const text = e.clipboardData.getData("text");
                 if (pasteCode(text)) e.preventDefault();
               }}>
@@ -197,13 +197,13 @@ export default function AdminLogin() {
                 ) : "Verify and sign in"}
               </button>
 
-              <div className="flex items-center justify-between gap-3 text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
                 <button type="button" onClick={resend} disabled={resendIn > 0}
-                  className="font-semibold text-blue-300 hover:text-blue-200 disabled:text-white/40 disabled:cursor-not-allowed transition-colors">
+                  className="py-2 font-semibold text-blue-300 hover:text-blue-200 disabled:text-white/40 disabled:cursor-not-allowed transition-colors">
                   {resendIn > 0 ? `Resend in ${resendIn}s` : "Send a new code"}
                 </button>
                 <button type="button" onClick={startOver}
-                  className="text-white/60 hover:text-white transition-colors">
+                  className="py-2 text-white/60 hover:text-white transition-colors">
                   Use another account
                 </button>
               </div>

@@ -1,10 +1,18 @@
+import { useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../store";
 import { api } from "../api";
 
+const NAV_LINKS = [
+  { to: "/", label: "Home" },
+  { to: "/courses", label: "Courses" },
+  { to: "/dashboard", label: "My Courses" },
+];
+
 export default function Layout() {
   const { access, refresh, logout } = useAuth();
   const nav = useNavigate();
+  const [menuOpen, setMenuOpen] = useState(false);
   // The admin panel is staff-only and signs its person out by itself, so the
   // student door buttons here would be a second, misleading set of controls.
   const inAdmin = useLocation().pathname.startsWith("/admin");
@@ -15,25 +23,49 @@ export default function Layout() {
   return (
     <div className="min-h-screen flex flex-col">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 group">
-            <img src="/logo.png" alt="GyanSankalp" className="h-10 w-auto group-hover:scale-105 transition-transform" />
-            <span className="font-bold text-blue-700 text-xl">GyanSankalp</span>
+        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
+          <Link to="/" className="flex items-center gap-2 min-w-0 group">
+            <img src="/logo.png" alt="GyanSankalp" className="h-10 w-auto shrink-0 group-hover:scale-105 transition-transform" />
+            <span className="font-bold text-blue-700 text-lg sm:text-xl truncate">GyanSankalp</span>
           </Link>
           <nav className="hidden md:flex items-center gap-8">
-            <Link to="/" className="text-sm font-medium text-slate-700 hover:text-blue-600 transition-colors">Home</Link>
-            <Link to="/courses" className="text-sm font-medium text-slate-700 hover:text-blue-600 transition-colors">Courses</Link>
-            <Link to="/dashboard" className="text-sm font-medium text-slate-700 hover:text-blue-600 transition-colors">My Courses</Link>
+            {NAV_LINKS.map((l) => (
+              <Link key={l.to} to={l.to} className="text-sm font-medium text-slate-700 hover:text-blue-600 transition-colors">{l.label}</Link>
+            ))}
           </nav>
-          <div className="flex items-center gap-3 text-sm">
+          <div className="flex items-center gap-2 sm:gap-3 text-sm shrink-0">
             {inAdmin ? null : access ? (<>
-              <button onClick={out} className="px-4 py-2 rounded-lg border border-slate-300 hover:bg-slate-50 transition-colors font-medium">Logout</button>
+              <button onClick={out} className="px-4 py-3 rounded-lg border border-slate-300 hover:bg-slate-50 transition-colors font-medium">Logout</button>
             </>) : (<>
-              <Link to="/login" className="font-medium text-slate-700 hover:text-blue-600 transition-colors">Login</Link>
-              <Link to="/register" className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors font-medium">Sign up</Link>
+              <Link to="/login" className="px-2 py-3 font-medium text-slate-700 hover:text-blue-600 transition-colors">Login</Link>
+              <Link to="/register" className="px-4 py-3 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors font-medium">Sign up</Link>
             </>)}
+            <button
+              onClick={() => setMenuOpen(!menuOpen)}
+              aria-expanded={menuOpen}
+              aria-label={menuOpen ? "Close menu" : "Open menu"}
+              className="md:hidden h-11 w-11 shrink-0 rounded-lg border border-slate-200 text-slate-700 flex items-center justify-center hover:bg-slate-50 transition-colors"
+            >
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                {menuOpen ? <path d="M6 6l12 12M18 6 6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
+              </svg>
+            </button>
           </div>
         </div>
+        {menuOpen && (
+          <nav className="md:hidden border-t border-slate-200 bg-white px-4 py-2">
+            {NAV_LINKS.map((l) => (
+              <Link
+                key={l.to}
+                to={l.to}
+                onClick={() => setMenuOpen(false)}
+                className="block py-3 text-sm font-medium text-slate-700 hover:text-blue-600 transition-colors"
+              >
+                {l.label}
+              </Link>
+            ))}
+          </nav>
+        )}
       </header>
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-8"><Outlet /></main>
       <footer className="bg-slate-900 text-slate-300">

@@ -98,7 +98,7 @@ export default function Reader() {
         </div>
 
         {/* Mobile sidebar drawer */}
-        <div className={`lg:hidden fixed top-0 left-0 h-full w-80 z-50 transform transition-transform duration-300 ${drawerOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        <div className={`lg:hidden fixed top-0 left-0 h-full w-[min(20rem,78vw)] z-50 transform transition-transform duration-300 ${drawerOpen ? "translate-x-0" : "-translate-x-full"}`}>
           <div className="h-full overflow-y-auto bg-slate-50 p-4 pt-16">{sidebar}</div>
         </div>
 

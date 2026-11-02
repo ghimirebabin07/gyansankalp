@@ -30,10 +30,10 @@ export default function Dashboard() {
   return (
     <div>
       <FadeIn>
-        <div className="relative overflow-hidden bg-blue-600 rounded-2xl p-10 mb-10">
+        <div className="relative overflow-hidden bg-blue-600 rounded-2xl p-6 sm:p-10 mb-10">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
           <div className="relative">
-            <h1 className="text-3xl font-bold text-white">Welcome back{user ? `, ${user.full_name}` : ""}!</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-white">Welcome back{user ? `, ${user.full_name}` : ""}!</h1>
             <p className="mt-2 text-blue-100 text-lg">Continue your learning journey.</p>
           </div>
         </div>

@@ -36,8 +36,8 @@ export default function CourseDetail() {
   return (
     <div className="grid lg:grid-cols-3 gap-8">
       <FadeIn className="lg:col-span-2">
-        <Card className="p-8" hover={false}>
-          <h1 className="text-4xl font-bold">{c.title}</h1>
+        <Card className="p-5 sm:p-8" hover={false}>
+          <h1 className="text-3xl sm:text-4xl font-bold">{c.title}</h1>
           <p className="mt-4 text-slate-600 leading-relaxed text-lg whitespace-pre-line">{c.description}</p>
 
           {c.syllabus && (
@@ -78,7 +78,7 @@ export default function CourseDetail() {
           <Card className="p-6" hover={false}>
             <div className="text-center pb-5 border-b border-slate-100">
               <p className="text-sm text-slate-500 font-medium">Course Price</p>
-              <p className="text-5xl font-bold text-blue-600 mt-2">{isFree ? "FREE" : `NPR ${c.price_npr}`}</p>
+              <p className="text-4xl sm:text-5xl font-bold text-blue-600 mt-2">{isFree ? "FREE" : `NPR ${c.price_npr}`}</p>
             </div>
 
             <div className="mt-5 space-y-3">
