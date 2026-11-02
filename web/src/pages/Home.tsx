@@ -27,10 +27,10 @@ function AnimatedCounter({ end, label, suffix = "", icon }: { end: number; label
   }, [end, reducedMotion]);
 
   return (
-    <FadeIn className="text-center p-8 bg-white rounded-2xl border border-slate-200 shadow-lg hover:shadow-xl transition-all duration-300">
-      <div className="text-4xl mb-3">{icon}</div>
-      <div className="text-4xl font-bold text-blue-600">{count}{suffix}</div>
-      <div className="text-sm text-slate-500 mt-2 uppercase tracking-wider font-medium">{label}</div>
+    <FadeIn className="text-center p-4 sm:p-8 bg-white rounded-2xl border border-slate-200 shadow-lg hover:shadow-xl transition-all duration-300">
+      <div className="text-2xl sm:text-4xl mb-3">{icon}</div>
+      <div className="text-2xl sm:text-4xl font-bold text-blue-600">{count}{suffix}</div>
+      <div className="text-[11px] sm:text-sm text-slate-500 mt-2 uppercase tracking-wider font-medium">{label}</div>
     </FadeIn>
   );
 }
@@ -58,7 +58,7 @@ function FaqItem({ q, a, i }: { q: string; a: string; i: number }) {
           <span>{q}</span>
           <span className={`w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xl transition-all duration-300 ${open ? "rotate-45 bg-blue-100 text-blue-600" : "group-hover:bg-blue-50"}`}>+</span>
         </button>
-        <div className={`overflow-hidden transition-all duration-500 ${open ? "max-h-48 pb-5" : "max-h-0"}`} role="region">
+        <div className={`overflow-hidden transition-all duration-500 ${open ? "max-h-[32rem] pb-5" : "max-h-0"}`} role="region">
           <p className="text-slate-600 leading-relaxed pr-12">{a}</p>
         </div>
       </div>
@@ -94,7 +94,7 @@ function ExamTargetCard({ title, subtitle, desc, delay, level }: { title: string
   return (
     <FadeIn delay={delay} className="h-full">
       <Link to={`/courses?level=${level}`} className="block group h-full">
-        <div className="relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-3xl p-8 text-white shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 h-full">
+        <div className="relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-3xl p-6 sm:p-8 text-white shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300 h-full">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
           <div className="relative h-full flex flex-col">
             <h3 className="text-3xl font-bold mb-2">{title}</h3>
@@ -147,13 +147,13 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 grid lg:grid-cols-2 gap-12 items-center">
           <div className="space-y-6">
             <FadeIn>
-              <h1 className="text-5xl md:text-6xl font-bold text-slate-900 leading-tight">
+              <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-slate-900 leading-tight">
                 Best Exam<br />
                 <span className="text-blue-600">Preparation Class</span>
               </h1>
             </FadeIn>
             <FadeIn delay={200}>
-              <p className="text-xl text-slate-600 leading-relaxed">
+              <p className="text-lg sm:text-xl text-slate-600 leading-relaxed">
                 GyanSankalp is Nepal's trusted platform for quality education. Access expert-led courses and study materials at your own pace.
               </p>
             </FadeIn>
@@ -178,7 +178,7 @@ export default function Home() {
 
       {/* Stats */}
       <section className="max-w-5xl mx-auto px-4 -mt-8 relative z-10">
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid grid-cols-3 gap-3 sm:gap-6">
           <AnimatedCounter end={stats.courses} suffix="+" label="Courses" icon="" />
           <AnimatedCounter end={stats.topics} suffix="+" label="Topics" icon="" />
           <AnimatedCounter end={stats.materials} suffix="+" label="Materials" icon="" />
@@ -186,11 +186,11 @@ export default function Home() {
       </section>
 
       {/* Exam Targets */}
-      <section className="max-w-6xl mx-auto px-4 py-24">
+      <section className="max-w-6xl mx-auto px-4 py-16 sm:py-24">
         <FadeIn>
-          <div className="text-center mb-16">
+          <div className="text-center mb-10 sm:mb-16">
             <span className="text-blue-600 font-semibold text-sm uppercase tracking-wider">Your Goal</span>
-            <h2 className="text-4xl md:text-5xl font-bold mt-3 text-slate-900">Choose Your Exam Target</h2>
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mt-3 text-slate-900">Choose Your Exam Target</h2>
             <p className="text-slate-500 mt-4 text-lg max-w-2xl mx-auto">Prepare for Lok Sewa Aayog exams and achieve your career dreams with expert guidance</p>
           </div>
         </FadeIn>
@@ -220,11 +220,11 @@ export default function Home() {
       </section>
 
       {/* Why Choose Us */}
-      <section className="max-w-6xl mx-auto px-4 py-24">
+      <section className="max-w-6xl mx-auto px-4 py-16 sm:py-24">
         <FadeIn>
-          <div className="text-center mb-16">
+          <div className="text-center mb-10 sm:mb-16">
             <span className="text-blue-600 font-semibold text-sm uppercase tracking-wider">Why Choose Us</span>
-            <h2 className="text-4xl md:text-5xl font-bold mt-3 text-slate-900">Everything you need to succeed</h2>
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mt-3 text-slate-900">Everything you need to succeed</h2>
             <p className="text-slate-500 mt-4 text-lg max-w-2xl mx-auto">We provide the best learning experience with quality content, expert guidance, and lifetime access.</p>
           </div>
         </FadeIn>
@@ -234,11 +234,11 @@ export default function Home() {
       </section>
 
       {/* Testimonials */}
-      <section className="max-w-6xl mx-auto px-4 py-24">
+      <section className="max-w-6xl mx-auto px-4 py-16 sm:py-24">
         <FadeIn>
-          <div className="text-center mb-16">
+          <div className="text-center mb-10 sm:mb-16">
             <span className="text-blue-600 font-semibold text-sm uppercase tracking-wider">Testimonials</span>
-            <h2 className="text-4xl md:text-5xl font-bold mt-3 text-slate-900">What our students say</h2>
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mt-3 text-slate-900">What our students say</h2>
             <p className="text-slate-500 mt-4 text-lg max-w-2xl mx-auto">Real stories from students who achieved their goals with GyanSankalp</p>
           </div>
         </FadeIn>
@@ -248,11 +248,11 @@ export default function Home() {
       </section>
 
       {/* FAQ */}
-      <section className="max-w-3xl mx-auto px-4 py-24">
+      <section className="max-w-3xl mx-auto px-4 py-16 sm:py-24">
         <FadeIn>
           <div className="text-center mb-12">
             <span className="text-blue-600 font-semibold text-sm uppercase tracking-wider">FAQ</span>
-            <h2 className="text-4xl md:text-5xl font-bold mt-3 text-slate-900">Frequently Asked Questions</h2>
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mt-3 text-slate-900">Frequently Asked Questions</h2>
             <p className="text-slate-500 mt-4 text-lg">Got questions? We've got answers.</p>
           </div>
         </FadeIn>
@@ -265,11 +265,11 @@ export default function Home() {
 
       {/* CTA */}
       {!access && (
-        <section className="bg-blue-600 py-24 px-4">
+        <section className="bg-blue-600 py-16 sm:py-24 px-4">
           <div className="max-w-3xl mx-auto text-center">
             <FadeIn>
-              <h2 className="text-4xl md:text-5xl font-bold text-white">Ready to start learning?</h2>
-              <p className="mt-4 text-xl text-blue-100">Join GyanSankalp today and unlock your full potential.</p>
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white">Ready to start learning?</h2>
+              <p className="mt-4 text-lg sm:text-xl text-blue-100">Join GyanSankalp today and unlock your full potential.</p>
               <Link to="/register" className="inline-flex items-center gap-2 mt-10 px-10 py-4 bg-white text-blue-600 font-bold rounded-xl hover:shadow-2xl hover:scale-105 transition-all duration-300">
                 Create Free Account <span>→</span>
               </Link>
