@@ -7,8 +7,9 @@ name: keep-alive
 # 0-17 UTC is 05:45-23:35 NPT: awake through the hours anyone actually studies,
 # dark overnight. That is deliberate - Render grants 750 free instance hours per
 # workspace per month, and a service pinged around the clock spends 744 of them
-# by itself. Only the API is pinged; it wakes the worker when a PDF needs
-# converting, so the worker costs minutes instead of months.
+# by itself. Only the API is pinged: the worker has no traffic of its own to
+# protect, and the admin panel wakes it from the browser when a PDF needs
+# converting, so it costs minutes instead of months.
 on:
   schedule:
     - cron: "*/10 0-17 * * *"

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { adminApi, errMsg } from "../adminApi";
+import { adminApi, errMsg, wakeWorker } from "../adminApi";
 import { useAdminAuth } from "../adminStore";
 import { FadeIn, Card, Badge, Button, Input } from "../components/ui";
 import { useToast } from "../components/Toast";
@@ -138,6 +138,18 @@ function TopicsTab() {
 
   useEffect(() => { if (selectedCourse) loadTopics(selectedCourse); }, [selectedCourse]);
 
+  // A cold worker takes up to a minute to boot before it claims the job, so a
+  // fresh upload would otherwise sit at "pending" until the admin reloaded by
+  // hand. This refreshes the list while anything is still queued.
+  const somethingQueued = Object.values(topicMaterials).some((ms) =>
+    ms.some((m) => m.status === "pending" || m.status === "processing"),
+  );
+  useEffect(() => {
+    if (!somethingQueued || !selectedCourse) return;
+    const timer = setInterval(() => loadTopics(selectedCourse), 5000);
+    return () => clearInterval(timer);
+  }, [somethingQueued, selectedCourse]);
+
   const addTopic = async (e: FormEvent) => {
     e.preventDefault();
     if (!selectedCourse || !newTopic) return;
@@ -192,13 +204,14 @@ function TopicsTab() {
       setMatFile(null);
       setUploadTopicId(null);
       if (fileRef.current) fileRef.current.value = "";
+      wakeWorker();
       loadTopics(selectedCourse);
       toast.add("PDF uploaded successfully", "success");
     } catch (e) { toast.add(errMsg(e), "error"); } finally { setUploading(false); setUploadProgress(0); }
   };
 
   const retryMaterial = async (id: number) => {
-    try { await adminApi.post(`/admin/materials/${id}/retry`); loadTopics(selectedCourse); toast.add("Retry started", "info"); } catch (e) { toast.add(errMsg(e), "error"); }
+    try { await adminApi.post(`/admin/materials/${id}/retry`); wakeWorker(); loadTopics(selectedCourse); toast.add("Retry started", "info"); } catch (e) { toast.add(errMsg(e), "error"); }
   };
   const deleteMaterial = async (id: number) => {
     if (!(await confirm("Delete this material?"))) return;
@@ -334,8 +347,17 @@ function MaterialsTab() {
   };
   useEffect(() => { load(); }, []);
 
+  const somethingQueued = allMaterials.some(
+    ({ material: m }) => m.status === "pending" || m.status === "processing",
+  );
+  useEffect(() => {
+    if (!somethingQueued) return;
+    const timer = setInterval(load, 5000);
+    return () => clearInterval(timer);
+  }, [somethingQueued]);
+
   const retryMaterial = async (id: number) => {
-    try { await adminApi.post(`/admin/materials/${id}/retry`); load(); toast.add("Retry started", "info"); } catch (e) { toast.add(errMsg(e), "error"); }
+    try { await adminApi.post(`/admin/materials/${id}/retry`); wakeWorker(); load(); toast.add("Retry started", "info"); } catch (e) { toast.add(errMsg(e), "error"); }
   };
   const deleteMaterial = async (id: number) => {
     if (!(await confirm("Delete this material?"))) return;
