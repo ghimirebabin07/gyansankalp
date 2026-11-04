@@ -34,9 +34,20 @@ You need Python 3.13 or newer, Node 22 and Docker.
 
 **1. Start Postgres and object storage**
 
+`compose.yml` keeps no credentials of its own. Create a `.env` in the repository root (it is gitignored) holding the two passwords the containers should use - any values you like, since this database only ever listens on your own machine:
+
+```bash
+POSTGRES_PASSWORD=...
+MINIO_ROOT_PASSWORD=...
+```
+
+Then start the containers:
+
 ```bash
 docker compose up -d
 ```
+
+Compose stops with an error rather than starting an open-password database if either line is missing. Remember both values for step 2, where `Backend/.env` has to match them.
 
 **2. Set up the API**
 
@@ -50,10 +61,10 @@ cp .env.example .env
 
 Open `.env` and fill in the values it explains at the top of each block. The ones that stop the app from booting:
 
-- `DATABASE_URL` — the port in `compose.yml` is `5433`, not `5432`.
+- `DATABASE_URL` — the port in `compose.yml` is `5433`, not `5432`, and the password is the `POSTGRES_PASSWORD` you just chose.
 - `JWT_SECRET` and `ADMIN_JWT_SECRET` — any two different long strings:
   `python -c "import secrets; print(secrets.token_urlsafe(48))"`
-- `S3_ACCESS_KEY` / `S3_SECRET_KEY` — the MinIO credentials from `compose.yml`.
+- `S3_ACCESS_KEY` / `S3_SECRET_KEY` — `minioadmin` and the `MINIO_ROOT_PASSWORD` you just chose.
 
 Then create the schema and your first staff account:
 
@@ -92,7 +103,7 @@ Email is the part you can skip: with no SMTP sender configured, verification lin
 cd Backend && pytest
 ```
 
-They run against the `DATABASE_URL` in `.env` and delete rows, so they point themselves at a throwaway database and skip if they do not get one: any database whose name contains `test`. Create it once and point the run at it, using the development Postgres credentials from `compose.yml`:
+They run against the `DATABASE_URL` in `.env` and delete rows, so they point themselves at a throwaway database and skip if they do not get one: any database whose name contains `test`. Create it once and point the run at it, using the `POSTGRES_PASSWORD` from the root `.env`:
 
 ```bash
 docker compose exec db psql -U postgres -c "CREATE DATABASE gyansankalp_test"

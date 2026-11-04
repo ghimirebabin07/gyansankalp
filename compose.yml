@@ -2,8 +2,10 @@ services:
   db:
     image: postgres:16
     environment:
-      POSTGRES_USER: postgres 
-      POSTGRES_PASSWORD: REDACTED_LOCAL_DEV_PASSWORD  # local development only - never reuse this anywhere real
+      POSTGRES_USER: postgres
+      # Read from a gitignored .env beside this file so no credential ever
+      # reaches the repository. Compose fails loudly when it is missing.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?create a .env with POSTGRES_PASSWORD first}
       POSTGRES_DB: gyansankalp
     # Loopback-only: nothing on the LAN or the internet can reach these ports.
     ports: ["127.0.0.1:5433:5432"]
@@ -15,7 +17,7 @@ services:
     user: "0:0"  # the image runs as uid 1000, which cannot write the fresh volume
     environment:
       MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: REDACTED_LOCAL_DEV_PASSWORD  # local development only
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?create a .env with MINIO_ROOT_PASSWORD first}
     ports: ["127.0.0.1:9000:9000", "127.0.0.1:9001:9001"]
     volumes: [miniodata:/data]
 volumes:  
