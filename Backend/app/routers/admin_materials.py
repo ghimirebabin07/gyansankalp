@@ -170,12 +170,41 @@ def retry_material(
     return db.get(Material, material_id)
 
 
+def _purge(original_key: str, page_prefix: str) -> None:
+    """Remove a material's objects, whatever the bucket decides to do about it.
+
+    If this dies partway the remaining objects are unreachable garbage - no row
+    names their keys, so no route can serve them - and they cost bucket space
+    until the storage is trimmed by hand. A bucket that refuses is not a reason
+    to make the admin press delete again.
+    """
+    try:
+        storage = get_storage()
+        storage.delete(original_key)
+        storage.delete_prefix(page_prefix)
+        log.info("purged %s", page_prefix)
+    except Exception:
+        log.warning("could not purge %s", page_prefix)
+
+
+def _purge_objects(original_key: str, page_prefix: str) -> None:
+    """Delete a material's files after the response, never inside it.
+
+    Supabase's S3 endpoint rejects batched deletes, so one page costs one round
+    trip of roughly 200 ms. A 300-page PDF is a minute of that, and an admin
+    whose browser times out at 30 s sees a failed delete and presses it again.
+
+    The database row is already committed when this starts, so the request that
+    gave up access is never the request that waits on the bucket.
+    """
+    threading.Thread(target=_purge, args=(original_key, page_prefix), daemon=True).start()
+
+
 @router.delete("/materials/{material_id}", status_code=204)
 def delete_material(
     material_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    storage: Storage = Depends(get_storage),
     admin: Admin = Depends(require(Cap.content_write)),
 ):
     material = _get_material(db, material_id)
@@ -183,11 +212,14 @@ def delete_material(
     if material.status == MaterialStatus.processing:
         raise HTTPException(409, "Material is being processed. Try again in a minute.")
     title = material.title
-    # Files first, row second. If storage fails, the row stays and you can retry.
-    storage.delete(material.original_key)
-    storage.delete_prefix(f"pages/{material.id}/")
+    original_key = material.original_key
+    page_prefix = f"pages/{material.id}/"
+    # The row goes first: access is a property of the row, and refusing to
+    # delete files that a request no longer points at keeps a slow bucket from
+    # turning into a page a student can still read.
     db.delete(material)
     db.commit()
     record(db, admin, "material.deleted", target=f"{material_id}/{title}", request=request)
     db.commit()
+    _purge_objects(original_key, page_prefix)
     return Response(status_code=204)

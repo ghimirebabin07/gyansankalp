@@ -2,9 +2,13 @@
 
 These tests delete rows, so they only run against a throwaway database.
 """
+import io
+import tempfile
 from datetime import datetime, timedelta, timezone
 
+import pymupdf
 import pytest
+from PIL import Image
 from sqlalchemy import delete, select, text, update
 
 from app import worker
@@ -206,3 +210,73 @@ def test_maintenance_prunes_dead_tokens_and_old_page_views(clean_materials):
     assert db.scalar(select(RefreshToken).where(RefreshToken.token_hash == "b" * 64)) is not None
     remaining = db.scalars(select(AccessLog)).all()
     assert [v.page_no for v in remaining] == [2]
+
+
+# ---- what the converter refuses to spend its time on ----
+
+def a_pdf(pages: int = 1, *, side: int = 200, encrypted: bool = False) -> bytes:
+    doc = pymupdf.open()
+    for _ in range(pages):
+        doc.new_page(width=side, height=side)
+    if not encrypted:
+        return doc.tobytes()
+    path = f"{tempfile.mkdtemp()}/locked.pdf"
+    doc.save(path, encryption=pymupdf.PDF_ENCRYPT_AES_256, owner_pw="o", user_pw="u")
+    doc.close()
+    with open(path, "rb") as handle:
+        return handle.read()
+
+
+class LocalStorage:
+    """The bytes a conversion would read from the bucket, and the keys it writes."""
+
+    def __init__(self, payload: bytes) -> None:
+        self.payload = payload
+        self.pages: dict[str, bytes] = {}
+
+    def download_to_path(self, key: str, path: str) -> None:
+        with open(path, "wb") as handle:
+            handle.write(self.payload)
+
+    def put_bytes(self, key: str, data: bytes, content_type: str) -> None:
+        self.pages[key] = data
+
+
+def test_a_pdf_over_the_page_ceiling_is_refused_before_rendering(clean_materials, monkeypatch):
+    """A 20 000-page PDF is a free denial of service if the limit is checked late.
+
+    Rendered pages are the expensive part: the count is read first so the job
+    fails without drawing a single one.
+    """
+    db = clean_materials
+    monkeypatch.setattr(settings, "max_pdf_pages", 3)
+    material_id = add_material(db, status=MaterialStatus.processing)
+    storage = LocalStorage(a_pdf(pages=4))
+
+    with pytest.raises(worker.PermanentError, match="the limit is 3"):
+        worker.convert(db, material_id, storage)
+    assert storage.pages == {}
+
+
+def test_a_locked_or_forged_pdf_fails_without_retries(clean_materials):
+    db = clean_materials
+    for payload, message in ((a_pdf(encrypted=True), "password protected"),
+                             (b"%PDF-1.7\nthis is not a document\n", "Cannot read")):
+        material_id = add_material(db, status=MaterialStatus.processing)
+        with pytest.raises(worker.PermanentError, match=message):
+            worker.convert(db, material_id, LocalStorage(payload))
+
+
+def test_an_enormous_page_is_drawn_down_to_the_size_cap(clean_materials):
+    """A page can be declared 20 000 points wide; the image cannot be that big."""
+    db = clean_materials
+    material_id = add_material(db, status=MaterialStatus.processing)
+    storage = LocalStorage(a_pdf(pages=1, side=20000))
+
+    worker.convert(db, material_id, storage)
+
+    image = Image.open(io.BytesIO(storage.pages[f"pages/{material_id}/1.jpg"]))
+    assert max(image.size) <= worker.TARGET_LONG_SIDE
+    row = reload_material(db, material_id)
+    assert row.status == MaterialStatus.ready
+    assert row.page_count == 1

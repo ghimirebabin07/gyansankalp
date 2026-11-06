@@ -17,10 +17,24 @@ MAX_KEYS = 100_000
 
 
 def client_ip(request: Request) -> str:
+    """Which address a request is counted against.
+
+    A proxy that appends leaves the caller's own entry at the front of
+    X-Forwarded-For, so reading the first hop means reading a header the visitor
+    typed. Rotating it gave every request a fresh budget: twelve calls to
+    /auth/resend-verification went through with twelve made-up addresses and the
+    same twelve were refused with the real one. The hop the proxy wrote for
+    itself is the last one, and that is the only one a client cannot pick.
+
+    This counts Render as the single proxy in front of the API. Put another
+    proxy (a CDN) in front and the last hop becomes that CDN's address, which
+    would throttle all its visitors together; then the depth has to grow too.
+    """
     if settings.trust_forwarded_for:
-        forwarded = request.headers.get("x-forwarded-for", "")
-        if forwarded:
-            return forwarded.split(",")[0].strip() or "unknown"
+        hops = [hop.strip() for hop in request.headers.get("x-forwarded-for", "").split(",")]
+        for hop in reversed(hops):
+            if hop:
+                return hop
     return request.client.host if request.client else "unknown"
 
 
