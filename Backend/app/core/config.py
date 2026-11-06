@@ -71,9 +71,12 @@ class Settings(BaseSettings):
     # upload and conversion limits
     max_upload_mb: int = 50
     max_pdf_pages: int = 800
-    # The worker is a Render web service too, and Render sleeps a service that
-    # receives no traffic. Rather than pay to keep it awake, the API pokes this
-    # URL after an upload. Unset means "the worker runs somewhere permanent".
+    # Render sleeps a service that gets no traffic, so a queued PDF would wait
+    # for a cold start. On the free plan this poke cannot work: from inside the
+    # platform the hostname resolves to a private address with nothing
+    # listening, and only a request from outside reaches the edge that boots
+    # the worker. The admin panel sends that request itself. Unset, or set on a
+    # plan where the address is reachable, and uploads are woken from here too.
     worker_url: str | None = None
 
     # comma-separated list of frontend origins allowed to call the API
@@ -106,7 +109,9 @@ class Settings(BaseSettings):
     # the public catalogue is a browser-cacheable read-only list; 0 disables it
     public_cache_seconds: int = Field(30, ge=0, le=3600)
 
-    # only set true when the API is genuinely served over HTTPS end to end
+    # only set true when the API is genuinely served over HTTPS end to end, and
+    # only on a domain this project owns: includeSubDomains on the shared
+    # *.onrender.com would pin every other tenant's subdomain in that browser
     hsts_enabled: bool = False
 
     @property
