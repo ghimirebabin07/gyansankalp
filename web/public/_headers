@@ -1,0 +1,53 @@
+# Cloudflare Pages serves this file as response headers for the paths below.
+#
+# The API cannot carry these for the site: the browser's own rules about which
+# scripts, frames and styles a page may load apply to the document that loads
+# them, and that document comes from Pages. Everything listed here was derived
+# from what the built app actually fetches, not from a template - a directive
+# that guesses wrong does not warn, it silently breaks sign-in or fonts.
+#
+#   script-src   the app's own bundle, plus Google's sign-in library, which the
+#                page injects as a <script> and which has no other origin.
+#   frame-src    the One Tap / button iframe inside accounts.google.com.
+#   style-src    Google's stylesheet for Public Sans, and Google's own button
+#                stylesheet. 'unsafe-inline' is here because the sign-in library
+#                writes style attributes into the button it builds in this page:
+#                without it the button renders unstyled and unreadable. That was
+#                observed, not assumed - the first version of this policy left it
+#                out and gsi/client logged four blocked inline-style violations.
+#                It costs the least of the three directives: script-src carries
+#                neither 'unsafe-inline' nor 'unsafe-eval', and both an injected
+#                inline script and a direct eval() were confirmed blocked.
+#   font-src     the .woff2 files live on fonts.gstatic.com, not googleapis.com.
+#   img-src      blob: because the reader turns page images into object URLs
+#                after an authenticated fetch; without it every page is blank.
+#   connect-src  the API (XHR and the authenticated blob fetches) and the
+#                worker's health URL, which the browser pings to wake it.
+#   frame-ancestors 'none', object-src 'none', base-uri 'self',
+#   form-action 'self'  no embedding, no plugins, no <base> hijack, and no
+#                sending this page's forms to someone else's endpoint.
+#
+# Local `npm run dev` is not covered: Vite does not read _headers. The CSP is
+# verified against the production origin, where the third-party allow-lists
+# (Google's authorized-javascript-origins rule) actually apply.
+#
+# Cache-Control is deliberately on /* rather than on the document it serves:
+# Pages matches these patterns against the URL the visitor asked for, so a rule
+# named after the file would miss /admin, /login and every other deep link. The
+# later block wins for the paths it covers, which is how the hashed bundle stays
+# cached while the document that names it never is.
+
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' blob: data:; connect-src 'self' https://gyansankalp-api.onrender.com https://gyansankalp-worker.onrender.com; frame-src https://accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), interest-cohort=()
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  # A cached shell is how an old bundle keeps loading after a deploy: the asset
+  # names change, so the HTML that names them must never be held.
+  Cache-Control: no-store
+
+/assets/*
+  # Vite fingerprints every file here, so a new build is a new URL.
+  Cache-Control: public, max-age=31536000, immutable

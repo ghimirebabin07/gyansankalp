@@ -4,8 +4,11 @@
 #   ./Backend/scripts/backup.sh              # dump into Backend/backups, keep 14
 #   KEEP=30 BACKUP_DIR=/mnt/dumps ./Backend/scripts/backup.sh
 #
-# Covers the database only. Materials (original PDFs and watermarked page JPEGs)
-# live in object storage and need their own versioning or replication rule.
+# Covers the database only, and inside it only the public schema: everything the
+# application owns lives there, and a dump that also carries a hosted project's
+# internal schemas cannot be restored anywhere else. Materials (original PDFs
+# and watermarked page JPEGs) live in object storage; copy those with
+#   python -m app.scripts.backup_storage --dest-bucket <name>
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -23,7 +26,7 @@ partial="$final.part"
 trap 'rm -f "$partial"' EXIT
 
 echo "Dumping $PGDATABASE@$PGHOST:$PGPORT -> $final"
-pg_dump --format=custom --no-owner --no-privileges --file="$partial" "$pg_url"
+pg_dump --format=custom --no-owner --no-privileges --schema=public --file="$partial" "$pg_url"
 
 # A dump that cannot be listed is not a backup.
 pg_restore --list "$partial" >/dev/null

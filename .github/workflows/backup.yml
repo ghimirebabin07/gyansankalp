@@ -1,0 +1,124 @@
+name: backup
+
+# Supabase's free plan includes no automatic backups at all - daily snapshots and
+# point-in-time recovery are both Pro features - so the database of record is this
+# workflow. It dumps production, restores it into a second Supabase project, and
+# then proves the restore by comparing every table's row count against the source.
+#
+# The restore IS the backup. A nightly pg_dump that nobody has restored is a
+# file, not a backup, and the failure it protects against (a project deleted,
+# corrupted, or paused past its 7-day grace period) is exactly the failure that
+# makes a first rehearsal too late.
+#
+# The steps below were rehearsed by hand on 2026-11-06 against the real
+# production database: the dump restored cleanly into an empty PostgreSQL 17,
+# all 14 tables matched on row count, and an md5 over the ordered contents of
+# users, courses and materials came out identical to the source.
+#
+# The dump itself is deliberately never uploaded as a build artifact: artifacts
+# of a public repository can be downloaded by anyone holding the URL, and this
+# file contains every student's name, email and enrollment. It stays on the
+# ephemeral runner and is deleted at the end of the job. Object storage is not
+# covered here; `python -m app.scripts.backup_storage --dest-bucket <name>` does
+# that from a laptop and verifies the copy by re-listing the destination.
+#
+# Needs two repository secrets, both connection strings with `?sslmode=require`:
+#   BACKUP_SOURCE_URL  the production database (read-only use: pg_dump)
+#   BACKUP_TARGET_URL  an empty database in the second Supabase project
+on:
+  schedule:
+    - cron: "15 18 * * *" # 00:00 Nepal, the quietest hour of the day there
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+jobs:
+  replicate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check the job has somewhere to read from and write to
+        run: |
+          set -euo pipefail
+          for name in BACKUP_SOURCE_URL BACKUP_TARGET_URL; do
+            if [ -z "${!name:-}" ]; then
+              echo "$name is not set in repository secrets" >&2
+              exit 1
+            fi
+          done
+          case "${BACKUP_TARGET_URL:-}" in
+            *"$BACKUP_SOURCE_URL"*) echo "source and target are the same database" >&2; exit 1 ;;
+          esac
+        env:
+          BACKUP_SOURCE_URL: ${{ secrets.BACKUP_SOURCE_URL }}
+          BACKUP_TARGET_URL: ${{ secrets.BACKUP_TARGET_URL }}
+
+      # pg_dump refuses a server newer than itself, and the runner's client is
+      # older than Supabase's. Install the client that matches the server.
+      - name: Install a Postgres client that matches the server
+        run: |
+          set -euo pipefail
+          major=$(psql "$BACKUP_SOURCE_URL" -tAc 'show server_version' | cut -d' ' -f1)
+          sudo apt-get -qq update
+          sudo apt-get -qq install -y postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y >/dev/null
+          sudo apt-get -qq install -y "postgresql-client-$major"
+          echo "/usr/lib/postgresql/$major/bin" >> "$GITHUB_PATH"
+          echo "using pg_dump $major"
+        env:
+          BACKUP_SOURCE_URL: ${{ secrets.BACKUP_SOURCE_URL }}
+
+      - name: Dump production
+        run: |
+          set -euo pipefail
+          # Only the application's schema. A Supabase project also carries auth,
+          # storage, graphql, pgbouncer and real time schemas owned by roles this
+          # job does not have, and a dump that includes them restores into a
+          # second project as an attempt to drop Supabase's own machinery.
+          pg_dump "$BACKUP_SOURCE_URL" --format=custom --no-owner --no-privileges \
+            --schema=public --file=/tmp/backup.dump
+          ls -l /tmp/backup.dump
+
+      - name: Restore it over last night's copy
+        run: |
+          set -euo pipefail
+          # --clean drops each object before recreating it, so the target holds
+          # exactly tonight's copy and nothing older. --exit-on-error is the
+          # difference between a rehearsal and a log full of warnings.
+          pg_restore --clean --if-exists --no-owner --no-privileges --exit-on-error \
+            -d "$BACKUP_TARGET_URL" /tmp/backup.dump
+        env:
+          BACKUP_TARGET_URL: ${{ secrets.BACKUP_TARGET_URL }}
+
+      - name: Prove the copy matches the source
+        run: |
+          set -euo pipefail
+          COUNTS=$(psql "$BACKUP_SOURCE_URL" -tAc "
+            select string_agg(
+              format('select %L as t, count(*) as n from %I.%I',
+                     c.relname, c.relnamespace::regnamespace, c.relname),
+              ' union all ')
+            from pg_class c
+            where c.relnamespace = 'public'::regnamespace and c.relkind = 'r';")
+          [ -n "$COUNTS" ] || { echo "no tables found in the source" >&2; exit 1; }
+          psql "$BACKUP_SOURCE_URL" -tAF'=' -c "$COUNTS" | sort > /tmp/source.txt
+          psql "$BACKUP_TARGET_URL"  -tAF'=' -c "$COUNTS" | sort > /tmp/target.txt
+          if ! diff -u /tmp/source.txt /tmp/target.txt; then
+            echo "restored rows do not match production" >&2
+            exit 1
+          fi
+          tables=$(wc -l < /tmp/source.txt)
+          rows=$(awk -F'=' '{s += $2} END {print s}' /tmp/source.txt)
+          echo "verified: $tables table(s), $rows row(s) replicated"
+        env:
+          BACKUP_SOURCE_URL: ${{ secrets.BACKUP_SOURCE_URL }}
+          BACKUP_TARGET_URL: ${{ secrets.BACKUP_TARGET_URL }}
+
+      - name: Remove the dump from the runner
+        if: always()
+        run: rm -f /tmp/backup.dump
