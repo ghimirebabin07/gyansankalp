@@ -23,7 +23,12 @@
 -- own internals use) or the `auth`/`storage`/`realtime` schemas, so sign-up
 -- mail, Storage and dashboards keep working.
 
-\set ON_ERROR_STOP on
+-- Leave the line below commented when running through the Supabase SQL Editor:
+-- a backslash command is a psql feature, and the dashboard's parser rejects it
+-- rather than ignoring it. Uncomment it when running this file with psql, so a
+-- failure partway through stops the script instead of leaving half the grants
+-- revoked.
+-- \set ON_ERROR_STOP on
 
 -- 1. Take every table and sequence in public away from the two client roles.
 --    Skipped silently when the roles do not exist, which is the case on a
