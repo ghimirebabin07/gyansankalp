@@ -101,18 +101,29 @@ def test_every_subresource_the_built_bundle_loads_is_allowed():
         assert origin in got["connect-src"], f"{origin} is called but not allowed"
 
 
-def test_html_is_never_cached_and_assets_always_are():
-    """Pages matches these rules against the requested path, not the file served.
+def test_only_the_assets_rule_sets_cache_control():
+    """Pages combines every matching block instead of letting the specific one win.
 
-    Naming /index.html would leave /admin, /login and every other deep link on
-    the CDN default, which is exactly the page that names the bundle.
+    A Cache-Control on /* therefore reaches the hashed bundle too, and the two
+    values arrive glued together as "no-store, public, max-age=..., immutable",
+    which browsers honour as no-store: the whole app re-downloaded on every
+    load. This was measured on the deployed site on 2026-11-07.
     """
     text = HEADERS.read_text()
-    everything = text.split("\n/*\n", 1)[1]
-    assert "Cache-Control: no-store" in everything
-    assert "/index.html" not in text, "a rule named after the file never matches a route"
+    everything = text.split("\n/*\n", 1)[1].split("/assets/*", 1)[0]
+    assert "Cache-Control" not in everything, (
+        "a Cache-Control on /* merges into the asset response and kills the "
+        "immutable cache; documents already get must-revalidate from Pages"
+    )
 
     assets = text.split("/assets/*", 1)[1]
     assert "immutable" in assets
-    # The later block wins, so the asset rule has to come after the catch-all.
-    assert text.index("/*") < text.index("/assets/*")
+    assert "max-age=31536000" in assets
+    # The patterns name paths, not files: /index.html would never match a route.
+    rules = "\n".join(
+        line
+        for line in text.splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    )
+    assert "/index.html" not in rules, "a rule named after the file never matches a route"
+    assert rules.index("/*") < rules.index("/assets/*")
