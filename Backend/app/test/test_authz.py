@@ -9,6 +9,7 @@ These tests delete rows, so they only run against a throwaway database.
 """
 
 import io
+import threading
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from uuid import uuid4
@@ -17,7 +18,7 @@ import jwt
 import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
-from sqlalchemy import text
+from sqlalchemy import select, text
 
 from app.core import ratelimit
 from app.core.config import settings
@@ -31,6 +32,7 @@ from app.models.course import Course, Topic
 from app.models.enrollment import Enrollment, EnrollmentStatus
 from app.models.material import Material, MaterialStatus
 from app.models.user import User
+from app.routers import admin_materials
 
 PASSWORD = "Str0ng-Passw0rd-for-tests"
 CLIENT_IP = "testclient"
@@ -151,6 +153,7 @@ def ctx():
             admin_id=admin.id, admin_token=admin_token, admin_email=admin.email,
             joined_course_id=joined.id, inner_topic_id=inner_topic.id,
             outer_topic_id=outer_topic.id, ready_material_id=ready.id,
+            ready_original_key=ready.original_key,
             pending_material_id=pending.id,
         )
     finally:
@@ -327,6 +330,74 @@ def test_storage_is_never_touched_for_a_refused_page_request(ctx):
             ctx.db.commit()
     finally:
         app.dependency_overrides.pop(get_storage, None)
+
+
+# ---- deleting a material does not wait on the bucket ----
+
+class RecordingPurge:
+    """Stands in for the object store so a purge can be watched, and failed."""
+
+    def __init__(self, fail: bool = False) -> None:
+        self.keys: list[str] = []
+        self.done = threading.Event()
+        self.fail = fail
+
+    def delete(self, key: str) -> None:
+        self.keys.append(key)
+        if self.fail:
+            raise RuntimeError("the bucket is unreachable")
+
+    def delete_prefix(self, prefix: str) -> None:
+        self.keys.append(prefix)
+        if self.fail:
+            raise RuntimeError("the bucket is unreachable")
+        self.done.set()
+
+
+def test_a_delete_hands_the_files_over_instead_of_walking_them(ctx, monkeypatch):
+    """The response marks the end of access, not of the storage work.
+
+    Supabase rejects batched deletes, so serving the 204 only after every page
+    is gone means an admin whose browser gives up at 30 seconds sees a failed
+    delete on something that already worked.
+    """
+    handed: list[tuple[str, str]] = []
+    monkeypatch.setattr(admin_materials, "_purge_objects",
+                        lambda key, prefix: handed.append((key, prefix)))
+
+    doomed = Material(topic_id=ctx.inner_topic_id, title="doomed.pdf",
+                      original_key=f"orig/authz-doomed-{ctx.salt}", size_bytes=1024,
+                      status=MaterialStatus.ready, page_count=2)
+    ctx.db.add(doomed)
+    ctx.db.commit()
+
+    refused = ctx.client.delete(f"/admin/materials/{doomed.id}",
+                                headers=bearer(ctx.member_token))
+    assert refused.status_code == 401, refused.text
+    assert handed == [], "a refused delete must not touch the bucket"
+
+    gone = ctx.client.delete(f"/admin/materials/{doomed.id}",
+                             headers=bearer(ctx.admin_token))
+    assert gone.status_code == 204, gone.text
+    remaining = ctx.db.execute(select(Material).where(Material.id == doomed.id)).scalar_one_or_none()
+    assert remaining is None
+    assert handed == [(f"orig/authz-doomed-{ctx.salt}", f"pages/{doomed.id}/")]
+
+
+def test_the_purge_clears_the_original_and_the_pages(ctx, monkeypatch):
+    fake = RecordingPurge()
+    monkeypatch.setattr(admin_materials, "get_storage", lambda: fake)
+    admin_materials._purge("orig/book.pdf", "pages/42/")
+
+    assert fake.done.wait(10), "the purge never reached the pages"
+    assert fake.keys == ["orig/book.pdf", "pages/42/"]
+
+    # A bucket that is down leaves garbage, not a 500 on an already-committed
+    # delete and not a stack trace in the log.
+    broken = RecordingPurge(fail=True)
+    monkeypatch.setattr(admin_materials, "get_storage", lambda: broken)
+    admin_materials._purge("orig/other.pdf", "pages/43/")
+    assert broken.keys == ["orig/other.pdf"]
 
 
 # ---- login, refresh and lockout ----

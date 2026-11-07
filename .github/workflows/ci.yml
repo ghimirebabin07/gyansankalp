@@ -51,6 +51,14 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      # A package with a published CVE is a shipped vulnerability, not a note for
+      # the next upgrade. requirements.txt pins exact versions, so this fails on
+      # real exposure rather than on a version being one release behind.
+      - name: Known vulnerabilities in the locked dependencies
+        run: |
+          pip install "pip-audit"
+          pip_audit -r requirements.txt --progress-spinner off
+
       - name: Syntax and undefined-name gate
         run: |
           python -m compileall -q app alembic scripts
@@ -123,6 +131,13 @@ jobs:
         working-directory: web
         run: npm ci
 
+      # Only production dependencies: the dev server's transitive advisories are
+      # not reachable from anything a student's browser loads.
+      - name: Known vulnerabilities in the shipped dependencies
+        if: steps.check.outputs.present == 'true'
+        working-directory: web
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Lint
         if: steps.check.outputs.present == 'true'
         working-directory: web
@@ -132,6 +147,15 @@ jobs:
         if: steps.check.outputs.present == 'true'
         working-directory: web
         run: npm run build
+
+      # Pages serves a wrong CSP the way a wall serves a crack: silently, and
+      # only in the browser. This runs the built bundle's own demands against the
+      # policy that ships, on the one machine that has both.
+      - name: The content policy fits the built bundle
+        if: steps.check.outputs.present == 'true'
+        run: |
+          pip install -q pytest
+          python -m pytest -q Backend/app/test/test_frontend_headers.py
 
   # Nothing is published from CI yet; this job is the gate that says a build is
   # safe to ship, and it fails loudly on the checks that matter before deploy.

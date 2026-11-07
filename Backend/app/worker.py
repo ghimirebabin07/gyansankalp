@@ -114,10 +114,18 @@ def convert(db: Session, material_id: int, storage: Storage) -> None:
         path = f"{tmp}/in.pdf"
         storage.download_to_path(material.original_key, path)
 
+        # Raised outside the except block, and not chained: while MuPDF's own
+        # exception is being handled its frame keeps the half-opened file
+        # referenced, so the temporary directory cannot be deleted and a corrupt
+        # upload reports a cleanup failure instead of what it actually is.
+        doc = None
+        reason = ""
         try:
             doc = pymupdf.open(path)
         except Exception as exc:
-            raise PermanentError("Cannot read this PDF (corrupt or not a PDF)") from exc
+            reason = str(exc)[:200] or type(exc).__name__
+        if doc is None:
+            raise PermanentError(f"Cannot read this PDF (corrupt or not a PDF): {reason}")
 
         with doc:
             if doc.needs_pass:
