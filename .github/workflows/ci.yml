@@ -54,10 +54,13 @@ jobs:
       # A package with a published CVE is a shipped vulnerability, not a note for
       # the next upgrade. requirements.txt pins exact versions, so this fails on
       # real exposure rather than on a version being one release behind.
+      # Run it as a module: pip installs the console script as `pip-audit` with a
+      # hyphen, and a hyphenated name is not a valid import, so the underscore
+      # form only ever exists as `python -m pip_audit`.
       - name: Known vulnerabilities in the locked dependencies
         run: |
           pip install "pip-audit"
-          pip_audit -r requirements.txt --progress-spinner off
+          python -m pip_audit -r requirements.txt --progress-spinner off
 
       - name: Syntax and undefined-name gate
         run: |

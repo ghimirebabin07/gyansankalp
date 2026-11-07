@@ -63,7 +63,11 @@ jobs:
       - name: Install a Postgres client that matches the server
         run: |
           set -euo pipefail
-          major=$(psql "$BACKUP_SOURCE_URL" -tAc 'show server_version' | cut -d' ' -f1)
+          # server_version is free text and Supabase's build reports it as
+          # "17.11", which is not a Debian package name. server_version_num is
+          # an integer and the major version is the whole number of 10000s.
+          num=$(psql "$BACKUP_SOURCE_URL" -tAc 'show server_version_num')
+          major=$((num / 10000))
           sudo apt-get -qq update
           sudo apt-get -qq install -y postgresql-common
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y >/dev/null
