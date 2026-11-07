@@ -31,11 +31,18 @@
 # verified against the production origin, where the third-party allow-lists
 # (Google's authorized-javascript-origins rule) actually apply.
 #
-# Cache-Control is deliberately on /* rather than on the document it serves:
-# Pages matches these patterns against the URL the visitor asked for, so a rule
-# named after the file would miss /admin, /login and every other deep link. The
-# later block wins for the paths it covers, which is how the hashed bundle stays
-# cached while the document that names it never is.
+# Cache-Control is set for /assets/* and deliberately nowhere else. Pages does
+# not let the later, more specific block win the way this file once assumed: it
+# combines every rule whose pattern matches the requested path, so a
+# Cache-Control on /* also lands on the bundle and the two values ship glued
+# together - "no-store, public, max-age=31536000, immutable" - which a browser
+# reads as no-store. Measured on the deployed site, not inferred.
+#
+# The patterns name paths, not files, because Pages matches against the URL the
+# visitor asked for: a rule called /index.html would miss /admin, /login and
+# every other deep link. Those documents keep Pages' own default,
+# "public, max-age=0, must-revalidate", which still revalidates on every
+# navigation, so a deploy cannot leave cached HTML naming an old bundle.
 
 /*
   Content-Security-Policy: default-src 'self'; script-src 'self' https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' blob: data:; connect-src 'self' https://gyansankalp-api.onrender.com https://gyansankalp-worker.onrender.com; frame-src https://accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests
@@ -44,9 +51,6 @@
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), interest-cohort=()
   Strict-Transport-Security: max-age=31536000; includeSubDomains
-  # A cached shell is how an old bundle keeps loading after a deploy: the asset
-  # names change, so the HTML that names them must never be held.
-  Cache-Control: no-store
 
 /assets/*
   # Vite fingerprints every file here, so a new build is a new URL.
