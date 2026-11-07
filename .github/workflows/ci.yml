@@ -57,7 +57,7 @@ jobs:
       - name: Known vulnerabilities in the locked dependencies
         run: |
           pip install "pip-audit"
-          pip_audit -r requirements.txt --progress-spinner off
+          pip-audit -r requirements.txt --progress-spinner off
 
       - name: Syntax and undefined-name gate
         run: |
